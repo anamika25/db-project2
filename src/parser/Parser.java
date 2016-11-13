@@ -220,7 +220,7 @@ public class Parser {
 			type = type.substring(0, type.length() - 1);
 
 		statement.getBranches().add(leaf(columnId, Constants.COLUMN_ID));
-		statement.getBranches().add(leaf(type, "TYPE"));
+		statement.getBranches().add(leaf(type, Constants.DATATYPE));
 		return statement;
 	}
 

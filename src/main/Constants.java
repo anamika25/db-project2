@@ -18,4 +18,7 @@ public final class Constants {
 	public static final String EXPRESSION = "EXPRESSION";
 	public static final String RELATION = "RELATION";
 	public static final String COLUMN_ID = "COLUMN_ID";
+	public static final String INITIAL = "INITIAL";
+	public static final String DATATYPE = "DATATYPE";
+
 }
