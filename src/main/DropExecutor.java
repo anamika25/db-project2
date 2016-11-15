@@ -8,7 +8,7 @@ public class DropExecutor extends AbstractExecutor {
 
 	@Override
 	protected void execute(ExecutionParameter parameter) {
-		List<StatementNode> arguments = parameter.getValueMap().get(Constants.DROP);
+		List<StatementNode> arguments = parameter.getQueryTypeToParseTreeMap().get(Constants.DROP);
 		if (arguments != null) {
 			String tableName = arguments.get(0).getBranches().get(0).getType();
 			parameter.getSchemaManager().deleteRelation(tableName);

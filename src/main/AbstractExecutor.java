@@ -19,12 +19,12 @@ public class AbstractExecutor {
 	}
 
 	protected void execute(ExecutionParameter parameter) {
-		String state = parameter.getValueMap().get("INITIAL").get(0).getType();
+		String state = parameter.getQueryTypeToParseTreeMap().get("INITIAL").get(0).getType();
 		ExecutionParameter nextParameter = new ExecutionParameter(parameter);
 		Map<String, List<StatementNode>> argu = new HashMap<String, List<StatementNode>>();
-		List<StatementNode> list = parameter.getValueMap().get("INITIAL").get(0).getBranches();
+		List<StatementNode> list = parameter.getQueryTypeToParseTreeMap().get("INITIAL").get(0).getBranches();
 		argu.put(state, list);
-		nextParameter.setValueMap(argu);
+		nextParameter.setQueryTypeToParseTreeMap(argu);
 		if (parameter.getSchemaManager() == null)
 			System.out.print("No Schema manager found!!!");
 		AbstractExecutor machine = stringExecutorMap.get(state);

@@ -11,13 +11,13 @@ import storageManager.SchemaManager;
 
 public class ExecutionParameter {
 
-	private Map<String, List<StatementNode>> valueMap = new HashMap<String, List<StatementNode>>();
+	private Map<String, List<StatementNode>> queryTypeToParseTreeMap = new HashMap<String, List<StatementNode>>();
 	private SchemaManager schemaManager;
 	private MainMemory memory;
 	private Disk disk;
 
 	public ExecutionParameter(HashMap<String, List<StatementNode>> map) {
-		valueMap = map;
+		queryTypeToParseTreeMap = map;
 	}
 
 	public ExecutionParameter(ExecutionParameter old) {
@@ -25,12 +25,12 @@ public class ExecutionParameter {
 		memory = old.getMemory();
 	}
 
-	public Map<String, List<StatementNode>> getValueMap() {
-		return valueMap;
+	public Map<String, List<StatementNode>> getQueryTypeToParseTreeMap() {
+		return queryTypeToParseTreeMap;
 	}
 
-	public void setValueMap(Map<String, List<StatementNode>> map) {
-		this.valueMap = map;
+	public void setQueryTypeToParseTreeMap(Map<String, List<StatementNode>> map) {
+		this.queryTypeToParseTreeMap = map;
 	}
 
 	public SchemaManager getSchemaManager() {

@@ -13,16 +13,16 @@ public class Parser {
 
 	static {
 		operatorPriorityMap = new HashMap<String, Integer>();
-		operatorPriorityMap.put("OR", 0);
-		operatorPriorityMap.put("AND", 1);
-		operatorPriorityMap.put("NOT", 2);
-		operatorPriorityMap.put("<", 3);
-		operatorPriorityMap.put(">", 3);
-		operatorPriorityMap.put("=", 3);
-		operatorPriorityMap.put("+", 4);
-		operatorPriorityMap.put("-", 4);
-		operatorPriorityMap.put("*", 5);
-		operatorPriorityMap.put("/", 5);
+		operatorPriorityMap.put(Constants.OR, 0);
+		operatorPriorityMap.put(Constants.AND, 1);
+		operatorPriorityMap.put(Constants.NOT, 2);
+		operatorPriorityMap.put(Constants.LESS_THAN, 3);
+		operatorPriorityMap.put(Constants.GREATER_THAN, 3);
+		operatorPriorityMap.put(Constants.EQUAL, 3);
+		operatorPriorityMap.put(Constants.ADDITION, 4);
+		operatorPriorityMap.put(Constants.SUBTRACTION, 4);
+		operatorPriorityMap.put(Constants.MULTIPLICATION, 5);
+		operatorPriorityMap.put(Constants.DIVISION, 5);
 	}
 
 	public static StatementNode startParse(String query) throws ParserException {
@@ -40,7 +40,7 @@ public class Parser {
 			statement = parseDelete(parts);
 		} else if (parts[0].equalsIgnoreCase(Constants.DROP)) {
 			statement = new StatementNode(Constants.DROP, false);
-			statement.getBranches().add(leaf(parts[2], Constants.RELATION));
+			statement.getBranches().add(leaf(parts[2], Constants.TABLE));
 		}
 		return statement;
 	}
@@ -81,17 +81,17 @@ public class Parser {
 				throw new ParserException("Wrong position of ORDER in select statement.");
 			if (!parts[orderByIndex + 1].equalsIgnoreCase("BY"))
 				throw new ParserException("Wrong ORDER BY in select statement.");
-			StatementNode orderStatement = parseOrder(Arrays.copyOfRange(parts, orderByIndex + 2, parts.length));
+			StatementNode orderStatement = parseOrderBy(Arrays.copyOfRange(parts, orderByIndex + 2, parts.length));
 			statement.getBranches().add(orderStatement);
 		}
 		return statement;
 	}
 
 	private static StatementNode parseCreate(String[] parts) throws ParserException {
-		if (!parts[1].equalsIgnoreCase("TABLE"))
+		if (!parts[1].equalsIgnoreCase(Constants.TABLE))
 			throw new ParserException("TABLE keyword wrong in create statement.");
 		StatementNode statement = new StatementNode(Constants.CREATE, false);
-		statement.getBranches().add(leaf(parts[2], Constants.RELATION));
+		statement.getBranches().add(leaf(parts[2], Constants.TABLE));
 		statement.getBranches().add(parseCreateColumns(Arrays.copyOfRange(parts, 3, parts.length)));
 		return statement;
 	}
@@ -109,7 +109,7 @@ public class Parser {
 		}
 		if (valuesIndex > 0) {
 			StatementNode returnStatement = new StatementNode(Constants.INSERT, false);
-			returnStatement.getBranches().add(leaf(parts[2], Constants.RELATION));
+			returnStatement.getBranches().add(leaf(parts[2], Constants.TABLE));
 			returnStatement.getBranches().add(parseColumns(Arrays.copyOfRange(parts, 3, valuesIndex)));
 			returnStatement.getBranches().add(parseValues(Arrays.copyOfRange(parts, valuesIndex + 1, parts.length)));
 			statement = returnStatement;
@@ -117,7 +117,7 @@ public class Parser {
 
 		if (selectIndex > 0) {
 			StatementNode returnStatement = new StatementNode(Constants.INSERT, false);
-			returnStatement.getBranches().add(leaf(parts[2], Constants.RELATION));
+			returnStatement.getBranches().add(leaf(parts[2], Constants.TABLE));
 			returnStatement.getBranches().add(parseColumns(Arrays.copyOfRange(parts, 3, selectIndex)));
 			returnStatement.getBranches().add(parseValues(Arrays.copyOfRange(parts, selectIndex, parts.length)));
 			statement = returnStatement;
@@ -126,10 +126,10 @@ public class Parser {
 	}
 
 	private static StatementNode parseDelete(String[] parts) throws ParserException {
-		if (!parts[1].equalsIgnoreCase("FROM"))
+		if (!parts[1].equalsIgnoreCase(Constants.FROM))
 			throw new ParserException("FROM keyword wrong in delete statement.");
 		StatementNode statement = new StatementNode(Constants.DELETE, false);
-		statement.getBranches().add(leaf(parts[2], Constants.RELATION));
+		statement.getBranches().add(leaf(parts[2], Constants.TABLE));
 		if (parts.length > 3 && parts[3].equalsIgnoreCase(Constants.WHERE)) {
 			statement.getBranches().add(parseWhere(Arrays.copyOfRange(parts, 4, parts.length)));
 		}
@@ -145,7 +145,7 @@ public class Parser {
 				String s = columnParts[i];
 				if (s.length() > 0)
 					col.getBranches().add(leaf(s.charAt(s.length() - 1) == ',' ? s.substring(0, s.length() - 1) : s,
-							Constants.COLUMN_ID));
+							Constants.COLUMN_NAME));
 			}
 		} else {
 			for (String column : columnParts) {
@@ -155,7 +155,7 @@ public class Parser {
 						s = s.substring(1, s.length());
 					if (s.charAt(s.length() - 1) == ')' || s.charAt(s.length() - 1) == ',')
 						s = s.substring(0, s.length() - 1);
-					statement.getBranches().add(leaf(s, Constants.COLUMN_ID));
+					statement.getBranches().add(leaf(s, Constants.COLUMN_NAME));
 				}
 			}
 		}
@@ -168,20 +168,20 @@ public class Parser {
 			String s = fromParts[i];
 			if (s.charAt(s.length() - 1) == ',')
 				s = s.substring(0, s.length() - 1);
-			statement.getBranches().add(leaf(s, Constants.RELATION));
+			statement.getBranches().add(leaf(s, Constants.TABLE));
 		}
 		return statement;
 	}
 
 	private static StatementNode parseWhere(String[] whereParts) {
-		StatementNode statement = new StatementNode(Constants.EXPRESSION, false);
-		statement.getBranches().add(evaluateExpression(whereParts));
+		StatementNode statement = new StatementNode(Constants.WHERE, false);
+		statement.getBranches().add(parseExpression(whereParts));
 		return statement;
 	}
 
-	private static StatementNode parseOrder(String[] orderParts) {
+	private static StatementNode parseOrderBy(String[] orderParts) {
 		StatementNode statement = new StatementNode(Constants.ORDER, false);
-		statement.getBranches().add(leaf(orderParts[0], Constants.COLUMN_ID));
+		statement.getBranches().add(leaf(orderParts[0], Constants.COLUMN_NAME));
 		return statement;
 	}
 
@@ -219,35 +219,22 @@ public class Parser {
 		if (type.charAt(type.length() - 1) == ',' || type.charAt(type.length() - 1) == ')')
 			type = type.substring(0, type.length() - 1);
 
-		statement.getBranches().add(leaf(columnId, Constants.COLUMN_ID));
+		statement.getBranches().add(leaf(columnId, Constants.COLUMN_NAME));
 		statement.getBranches().add(leaf(type, Constants.DATATYPE));
 		return statement;
 	}
 
-	private static StatementNode leaf(String string, String type) {
-		if (type.equals(Constants.COLUMN_ID)) {
-			StatementNode statement = new StatementNode(Constants.COLUMN_ID, false);
-			String[] id = string.split("\\.");
-			for (String t : id) {
-				statement.getBranches().add(new StatementNode(t, true));
-			}
-			return statement;
-		} else if (type.equals(Constants.RELATION)) {
-			StatementNode statement = new StatementNode(Constants.RELATION, false);
-			statement.getBranches().add(new StatementNode(string, true));
-			return statement;
-		} else {
-			StatementNode statement = new StatementNode(type, false);
-			statement.getBranches().add(new StatementNode(string, true));
-			return statement;
-		}
+	private static StatementNode leaf(String value, String type) {
+		StatementNode statement = new StatementNode(type, false);
+		statement.getBranches().add(new StatementNode(value, true));
+		return statement;
 	}
 
-	private static StatementNode evaluateExpression(String[] tokens) {
+	private static StatementNode parseExpression(String[] tokens) {
 		Stack<StatementNode> stack = new Stack<StatementNode>();
 		int i = 0;
 		while (i < tokens.length) {
-			if (tokens[i].equals("NOT")) {
+			if (tokens[i].equals(Constants.NOT)) {
 				stack.push(new StatementNode(tokens[i], false));
 			} else if (operatorPriorityMap.containsKey(tokens[i])) {
 				if (stack.size() >= 3) {
@@ -259,7 +246,7 @@ public class Parser {
 						while (stack.size() > 0 && operatorPriorityMap.get(stack.peek().getType()) > operatorPriorityMap
 								.get(tokens[i])) {
 							StatementNode operator = stack.pop();
-							if (operator.getType().equals("NOT")) {
+							if (operator.getType().equals(Constants.NOT)) {
 								operator.getBranches().add(last);
 								last = operator;
 								continue;
@@ -276,9 +263,9 @@ public class Parser {
 					stack.push(new StatementNode(tokens[i], false));
 				}
 			} else if (isInteger(tokens[i])) {
-				stack.push(leaf(tokens[i], "INT"));
+				stack.push(leaf(tokens[i], Constants.INT));
 			} else if (tokens[i].charAt(0) == '"') {
-				stack.push(leaf(tokens[i].substring(1, tokens[i].length() - 1), "STRING"));
+				stack.push(leaf(tokens[i].substring(1, tokens[i].length() - 1), Constants.STRING));
 			} else if (tokens[i].equals("(")) {
 				int count = 0;
 				int start = i + 1;
@@ -291,7 +278,7 @@ public class Parser {
 					i += 1;
 				}
 				String[] tokensInClause = Arrays.copyOfRange(tokens, start, i);
-				stack.push(evaluateExpression(tokensInClause));
+				stack.push(parseExpression(tokensInClause));
 				i += 1;
 				continue;
 			} else if (tokens[i].equals("[")) {
@@ -306,11 +293,11 @@ public class Parser {
 					i += 1;
 				}
 				String[] tokensInClause = Arrays.copyOfRange(tokens, start, i);
-				stack.push(evaluateExpression(tokensInClause));
+				stack.push(parseExpression(tokensInClause));
 				i += 1;
 				continue;
 			} else {
-				stack.push(leaf(tokens[i], Constants.COLUMN_ID));
+				stack.push(leaf(tokens[i], Constants.COLUMN_NAME));
 			}
 			i++;
 		}
@@ -319,7 +306,7 @@ public class Parser {
 			StatementNode operant = stack.pop();
 			while (stack.size() >= 2) {
 				StatementNode operator = stack.pop();
-				if (operator.getType().equals("NOT")) {
+				if (operator.getType().equals(Constants.NOT)) {
 					operator.getBranches().add(operant);
 					operant = operator;
 					continue;
