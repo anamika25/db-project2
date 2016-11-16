@@ -1,9 +1,11 @@
 package main;
 
-public class InsertExecutor extends AbstractExecutor {
+/**
+ * To execute insert query
+ */
+public class InsertExecutor {
 
-	@Override
-	protected void execute(ExecutionParameter parameter) {
+	public void execute(ExecutionParameter parameter) {
 		// TODO Auto-generated method stub
 	}
 

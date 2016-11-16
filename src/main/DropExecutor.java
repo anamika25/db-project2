@@ -4,11 +4,13 @@ import java.util.List;
 
 import parser.StatementNode;
 
-public class DropExecutor extends AbstractExecutor {
+/**
+ * To execute drop query
+ */
+public class DropExecutor {
 
-	@Override
-	protected void execute(ExecutionParameter parameter) {
-		List<StatementNode> arguments = parameter.getQueryTypeToParseTreeMap().get(Constants.DROP);
+	public void execute(ExecutionParameter parameter) {
+		List<StatementNode> arguments = parameter.getParseTreeRoot().getBranches();
 		if (arguments != null) {
 			String tableName = arguments.get(0).getBranches().get(0).getType();
 			parameter.getSchemaManager().deleteRelation(tableName);

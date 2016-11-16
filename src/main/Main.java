@@ -14,8 +14,17 @@ import org.apache.commons.cli.ParseException;
 
 import parser.Parser;
 import parser.ParserException;
+import parser.StatementNode;
+import storageManager.Disk;
+import storageManager.MainMemory;
+import storageManager.SchemaManager;
 
 public class Main {
+
+	private static SchemaManager schemaManager;
+	private static Disk disk;
+	private static MainMemory memory;
+	private static AbstractExecutor executor;
 
 	public static void main(String[] args) {
 
@@ -25,12 +34,19 @@ public class Main {
 
 		CommandLineParser parser = new BasicParser();
 		String query = null, fileName = null;
+
+		memory = new MainMemory();
+		disk = new Disk();
+		schemaManager = new SchemaManager(memory, disk);
+		executor = new AbstractExecutor();
 		try {
 			CommandLine cmd = parser.parse(options, args);
 			if (cmd.hasOption("s")) {
 				query = cmd.getOptionValue("s");
 				System.out.println("Query: " + query);
-				System.out.println(Parser.startParse(query));
+				StatementNode parseTree = Parser.startParse(query);
+				System.out.println(parseTree + "\n");
+				executor.execute(parseTree, schemaManager, disk, memory);
 			} else if (cmd.hasOption("f")) {
 				fileName = cmd.getOptionValue("f");
 				System.out.println("File to process: " + fileName);
@@ -60,7 +76,7 @@ public class Main {
 				if (line.isEmpty()) {
 					continue;
 				}
-				Parser.startParse(line);
+				executor.execute(Parser.startParse(line), schemaManager, disk, memory);
 			}
 		} catch (FileNotFoundException e) {
 			System.out.println("File not found. Exiting !!");

@@ -7,11 +7,13 @@ import storageManager.Block;
 import storageManager.Relation;
 import storageManager.Tuple;
 
-public class DeleteExecutor extends AbstractExecutor {
+/**
+ * To execute delete query
+ */
+public class DeleteExecutor {
 
-	@Override
-	protected void execute(ExecutionParameter parameter) {
-		List<StatementNode> deleteParseTree = parameter.getQueryTypeToParseTreeMap().get(Constants.DELETE);
+	public void execute(ExecutionParameter parameter) {
+		List<StatementNode> deleteParseTree = parameter.getParseTreeRoot().getBranches();
 		if (deleteParseTree == null) {
 			System.out.println("Parse tree not found for DELETE statement. Exiting!!");
 			System.exit(0);
@@ -42,7 +44,7 @@ public class DeleteExecutor extends AbstractExecutor {
 				Block firstMemoryBlock = parameter.getMemory().getBlock(0);
 				List<Tuple> tuples = firstMemoryBlock.getTuples();
 				for (int j = 0; j < tuples.size(); j++) {
-					if (ExpressionEvaluator.evaluateBooleanOperator(whereExpression, tuples.get(j))) {
+					if (ExpressionEvaluator.evaluateLogicalOperator(whereExpression, tuples.get(j))) {
 						firstMemoryBlock.invalidateTuple(j);
 						modified = true;
 					}

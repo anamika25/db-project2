@@ -1,9 +1,5 @@
 package main;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import parser.StatementNode;
 import storageManager.Disk;
 import storageManager.MainMemory;
@@ -11,26 +7,24 @@ import storageManager.SchemaManager;
 
 public class ExecutionParameter {
 
-	private Map<String, List<StatementNode>> queryTypeToParseTreeMap = new HashMap<String, List<StatementNode>>();
+	private StatementNode parseTreeRoot;
 	private SchemaManager schemaManager;
 	private MainMemory memory;
 	private Disk disk;
 
-	public ExecutionParameter(HashMap<String, List<StatementNode>> map) {
-		queryTypeToParseTreeMap = map;
+	public ExecutionParameter(StatementNode parseTreeRoot, SchemaManager schemaManager, MainMemory memory, Disk disk) {
+		this.parseTreeRoot = parseTreeRoot;
+		this.schemaManager = schemaManager;
+		this.memory = memory;
+		this.disk = disk;
 	}
 
-	public ExecutionParameter(ExecutionParameter old) {
-		schemaManager = old.getSchemaManager();
-		memory = old.getMemory();
+	public StatementNode getParseTreeRoot() {
+		return parseTreeRoot;
 	}
 
-	public Map<String, List<StatementNode>> getQueryTypeToParseTreeMap() {
-		return queryTypeToParseTreeMap;
-	}
-
-	public void setQueryTypeToParseTreeMap(Map<String, List<StatementNode>> map) {
-		this.queryTypeToParseTreeMap = map;
+	public void setParseTreeRoot(StatementNode parseTreeRoot) {
+		this.parseTreeRoot = parseTreeRoot;
 	}
 
 	public SchemaManager getSchemaManager() {

@@ -4,31 +4,34 @@ import parser.StatementNode;
 import storageManager.FieldType;
 import storageManager.Tuple;
 
+/**
+ * Class to check whether the tuple matches with where condition
+ */
 public class ExpressionEvaluator {
 
 	/** Function to evaluate boolean operator */
-	public static boolean evaluateBooleanOperator(StatementNode statement, Tuple tuple) {
+	public static boolean evaluateLogicalOperator(StatementNode statement, Tuple tuple) {
 		StatementNode firstChild = statement.getBranches().get(0);
 		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
 		// If we are at a node one level up
 		case Constants.WHERE:
-			return evaluateBooleanOperator(firstChild, tuple);
+			return evaluateLogicalOperator(firstChild, tuple);
 
 		case Constants.OR:
-			return evaluateBooleanOperator(firstChild, tuple) || evaluateBooleanOperator(secondChild, tuple);
+			return evaluateLogicalOperator(firstChild, tuple) || evaluateLogicalOperator(secondChild, tuple);
 
 		case Constants.AND:
-			return evaluateBooleanOperator(firstChild, tuple) && evaluateBooleanOperator(secondChild, tuple);
+			return evaluateLogicalOperator(firstChild, tuple) && evaluateLogicalOperator(secondChild, tuple);
 
 		case Constants.NOT:
-			return !(evaluateBooleanOperator(firstChild, tuple));
+			return !(evaluateLogicalOperator(firstChild, tuple));
 
 		case Constants.LESS_THAN:
-			return evaluateIntegralOperator(firstChild, tuple) < evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) < evaluateArithmeticOperator(secondChild, tuple);
 
 		case Constants.GREATER_THAN:
-			return evaluateIntegralOperator(firstChild, tuple) > evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) > evaluateArithmeticOperator(secondChild, tuple);
 
 		case Constants.EQUAL:
 			return evaluateEqualityOperator(firstChild, secondChild, tuple);
@@ -40,7 +43,7 @@ public class ExpressionEvaluator {
 		return false;
 	}
 
-	public static int evaluateIntegralOperator(StatementNode statement, Tuple tuple) {
+	public static int evaluateArithmeticOperator(StatementNode statement, Tuple tuple) {
 		StatementNode firstChild = statement.getBranches().get(0);
 		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
@@ -51,16 +54,16 @@ public class ExpressionEvaluator {
 			return Integer.parseInt(firstChild.getType());
 
 		case Constants.ADDITION:
-			return evaluateIntegralOperator(firstChild, tuple) + evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) + evaluateArithmeticOperator(secondChild, tuple);
 
 		case Constants.SUBTRACTION:
-			return evaluateIntegralOperator(firstChild, tuple) - evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) - evaluateArithmeticOperator(secondChild, tuple);
 
 		case Constants.MULTIPLICATION:
-			return evaluateIntegralOperator(firstChild, tuple) * evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) * evaluateArithmeticOperator(secondChild, tuple);
 
 		case Constants.DIVISION:
-			return evaluateIntegralOperator(firstChild, tuple) / evaluateIntegralOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(firstChild, tuple) / evaluateArithmeticOperator(secondChild, tuple);
 
 		default:
 			System.out.println("Wrong type for comparison operator. Exiting!!!");

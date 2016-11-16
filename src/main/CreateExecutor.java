@@ -7,13 +7,15 @@ import parser.StatementNode;
 import storageManager.FieldType;
 import storageManager.Schema;
 
-public class CreateExecutor extends AbstractExecutor {
+/**
+ * To execute create query
+ */
+public class CreateExecutor {
 
-	@Override
-	protected void execute(ExecutionParameter parameter) {
+	public void execute(ExecutionParameter parameter) {
 		ArrayList<String> fieldName = new ArrayList<String>();
 		ArrayList<FieldType> fieldType = new ArrayList<FieldType>();
-		List<StatementNode> createParseTree = parameter.getQueryTypeToParseTreeMap().get(Constants.CREATE);
+		List<StatementNode> createParseTree = parameter.getParseTreeRoot().getBranches();
 		StatementNode tableNode = createParseTree.get(0);
 		if (!tableNode.getType().equalsIgnoreCase(Constants.TABLE)) {
 			System.out.println("Table name not found for Create statement. Exiting!!");

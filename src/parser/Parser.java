@@ -7,6 +7,9 @@ import java.util.Stack;
 
 import main.Constants;
 
+/**
+ * Parse raw query and return the parse tree
+ */
 public class Parser {
 
 	private static Map<String, Integer> operatorPriorityMap;

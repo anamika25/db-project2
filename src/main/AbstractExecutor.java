@@ -1,34 +1,44 @@
 package main;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import parser.StatementNode;
+import storageManager.Disk;
+import storageManager.MainMemory;
+import storageManager.SchemaManager;
 
+/**
+ * Class to call different query executors depending on query type
+ */
 public class AbstractExecutor {
 
-	protected static Map<String, AbstractExecutor> stringExecutorMap;
-	static {
-		stringExecutorMap.put(Constants.SELECT, new SelectExecutor());
-		stringExecutorMap.put(Constants.CREATE, new CreateExecutor());
-		stringExecutorMap.put(Constants.DROP, new DropExecutor());
-		stringExecutorMap.put(Constants.INSERT, new InsertExecutor());
-		stringExecutorMap.put(Constants.INITIAL, new AbstractExecutor());
-		stringExecutorMap.put(Constants.DELETE, new DeleteExecutor());
-	}
+	public void execute(StatementNode statement, SchemaManager schemaManager, Disk disk, MainMemory memory) {
+		long startSystemTime = System.currentTimeMillis();
+		double startDiskTime = disk.getDiskTimer();
+		long startDiskIO = disk.getDiskIOs();
 
-	protected void execute(ExecutionParameter parameter) {
-		String state = parameter.getQueryTypeToParseTreeMap().get("INITIAL").get(0).getType();
-		ExecutionParameter nextParameter = new ExecutionParameter(parameter);
-		Map<String, List<StatementNode>> argu = new HashMap<String, List<StatementNode>>();
-		List<StatementNode> list = parameter.getQueryTypeToParseTreeMap().get("INITIAL").get(0).getBranches();
-		argu.put(state, list);
-		nextParameter.setQueryTypeToParseTreeMap(argu);
-		if (parameter.getSchemaManager() == null)
-			System.out.print("No Schema manager found!!!");
-		AbstractExecutor machine = stringExecutorMap.get(state);
-		machine.execute(nextParameter);
+		ExecutionParameter parameter = new ExecutionParameter(statement, schemaManager, memory, disk);
+
+		switch (statement.getType()) {
+		case Constants.CREATE:
+			new CreateExecutor().execute(parameter);
+			break;
+		case Constants.INSERT:
+			new InsertExecutor().execute(parameter);
+			break;
+		case Constants.SELECT:
+			new SelectExecutor().execute(parameter);
+			break;
+		case Constants.DELETE:
+			new DeleteExecutor().execute(parameter);
+			break;
+		case Constants.DROP:
+			new DropExecutor().execute(parameter);
+			break;
+		}
+
+		System.out.print("Computer elapse time = " + (System.currentTimeMillis() - startSystemTime) + " ms" + "\n");
+		System.out.print("Calculated elapse time = " + (disk.getDiskTimer() - startDiskTime) + " ms" + "\n");
+		System.out.println("Calculated Disk I/Os = " + (disk.getDiskIOs() - startDiskIO) + "\n");
+
 	}
 
 }
