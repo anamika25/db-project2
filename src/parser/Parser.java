@@ -144,7 +144,7 @@ public class Parser {
 		StatementNode statement = new StatementNode(Constants.COLUMNS, false);
 		if (columnParts[0].equalsIgnoreCase(Constants.DISTINCT)) {
 			statement.getBranches().add(new StatementNode(Constants.DISTINCT, false));
-			StatementNode col = statement.getBranches().get(0);
+			StatementNode col = statement.getFirstChild();
 			for (int i = 1; i < columnParts.length; i++) {
 				String s = columnParts[i];
 				if (s.length() > 0)

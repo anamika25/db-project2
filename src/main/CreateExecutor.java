@@ -22,15 +22,15 @@ public class CreateExecutor {
 			System.exit(0);
 		}
 
-		String tableName = tableNode.getBranches().get(0).getType();
+		String tableName = tableNode.getFirstChild().getType();
 		List<StatementNode> columnsDetails = createParseTree.get(1).getBranches();
 		for (StatementNode columnNode : columnsDetails) {
 			if (!columnNode.getType().equalsIgnoreCase(Constants.COLUMN_DETAILS)) {
 				System.out.println("Column details not present for Create statement. Exiting!!");
 				System.exit(0);
 			}
-			fieldName.add(columnNode.getBranches().get(0).getBranches().get(0).getType());
-			String type = columnNode.getBranches().get(1).getBranches().get(0).getType();
+			fieldName.add(columnNode.getFirstChild().getFirstChild().getType());
+			String type = columnNode.getBranches().get(1).getFirstChild().getType();
 			if (type.equals(FieldType.INT.name())) {
 				fieldType.add(FieldType.INT);
 			} else if (type.equals(FieldType.STR20.name())) {

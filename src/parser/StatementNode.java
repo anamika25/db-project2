@@ -32,6 +32,10 @@ public class StatementNode {
 		this.branches = branches;
 	}
 
+	public StatementNode getFirstChild() {
+		return branches == null ? null : branches.get(0);
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();

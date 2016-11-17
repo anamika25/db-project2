@@ -11,7 +11,7 @@ public class ExpressionEvaluator {
 
 	/** Function to evaluate boolean operator */
 	public static boolean evaluateLogicalOperator(StatementNode statement, Tuple tuple) {
-		StatementNode firstChild = statement.getBranches().get(0);
+		StatementNode firstChild = statement.getFirstChild();
 		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
 		// If we are at a node one level up
@@ -44,7 +44,7 @@ public class ExpressionEvaluator {
 	}
 
 	public static int evaluateArithmeticOperator(StatementNode statement, Tuple tuple) {
-		StatementNode firstChild = statement.getBranches().get(0);
+		StatementNode firstChild = statement.getFirstChild();
 		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
 		case Constants.COLUMN_NAME:
@@ -77,7 +77,7 @@ public class ExpressionEvaluator {
 		String firstType = null, secondType = null;
 		Object firstValue = null, secondValue = null;
 		if (firstOperand.getType().equals(Constants.COLUMN_NAME)) {
-			String columnName = firstOperand.getBranches().get(0).getType();
+			String columnName = firstOperand.getFirstChild().getType();
 			FieldType type = tuple.getSchema().getFieldType(columnName);
 			if (type == FieldType.INT) {
 				firstType = Constants.INT;
@@ -88,14 +88,14 @@ public class ExpressionEvaluator {
 			}
 		} else if (firstOperand.getType().equals(Constants.STRING)) {
 			firstType = Constants.STRING;
-			firstValue = firstOperand.getBranches().get(0).getType();
+			firstValue = firstOperand.getFirstChild().getType();
 		} else if (firstOperand.getType().equals(Constants.INT)) {
 			firstType = Constants.INT;
-			firstValue = Integer.parseInt(firstOperand.getBranches().get(0).getType());
+			firstValue = Integer.parseInt(firstOperand.getFirstChild().getType());
 		}
 
 		if (secondOperand.getType().equals(Constants.COLUMN_NAME)) {
-			String columnName = secondOperand.getBranches().get(0).getType();
+			String columnName = secondOperand.getFirstChild().getType();
 			FieldType type = tuple.getSchema().getFieldType(columnName);
 			if (type == FieldType.INT) {
 				firstType = Constants.INT;
@@ -106,10 +106,10 @@ public class ExpressionEvaluator {
 			}
 		} else if (secondOperand.getType().equals(Constants.STRING)) {
 			firstType = Constants.STRING;
-			firstValue = secondOperand.getBranches().get(0).getType();
+			firstValue = secondOperand.getFirstChild().getType();
 		} else if (secondOperand.getType().equals(Constants.INT)) {
 			firstType = Constants.INT;
-			firstValue = Integer.parseInt(secondOperand.getBranches().get(0).getType());
+			firstValue = Integer.parseInt(secondOperand.getFirstChild().getType());
 		}
 
 		if (!firstType.equals(secondType))

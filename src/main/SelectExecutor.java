@@ -5,6 +5,7 @@ import java.util.List;
 
 import parser.StatementNode;
 import storageManager.Block;
+import storageManager.FieldType;
 import storageManager.MainMemory;
 import storageManager.Relation;
 import storageManager.Schema;
@@ -35,9 +36,9 @@ public class SelectExecutor {
 		assert fromNode != null;
 
 		boolean hasDistinct = false;
-		if (columnsNode.getBranches().get(0).getType().equals(Constants.DISTINCT)) {
+		if (columnsNode.getFirstChild().getType().equals(Constants.DISTINCT)) {
 			hasDistinct = true;
-			columnsNode = columnsNode.getBranches().get(0);
+			columnsNode = columnsNode.getFirstChild();
 		}
 
 		List<String> selectColumnList = new ArrayList<String>();
@@ -46,7 +47,7 @@ public class SelectExecutor {
 				System.out.println("Column name not found. Exiting!!!");
 				System.exit(0);
 			}
-			selectColumnList.add(columnNameNode.getBranches().get(0).getType());
+			selectColumnList.add(columnNameNode.getFirstChild().getType());
 		}
 
 		SchemaManager schemaManager = parameter.getSchemaManager();
@@ -54,11 +55,11 @@ public class SelectExecutor {
 
 		// Select from single table
 		if (fromNode.getBranches().size() == 1) {
-			if (!fromNode.getBranches().get(0).equals(Constants.TABLE)) {
+			if (!fromNode.getFirstChild().equals(Constants.TABLE)) {
 				System.out.println("Table node not found. Exiting!!!");
 				System.exit(0);
 			}
-			String tableName = fromNode.getBranches().get(0).getBranches().get(0).getType();
+			String tableName = fromNode.getFirstChild().getFirstChild().getType();
 			Relation table = schemaManager.getRelation(tableName);
 
 			// Condition for one pass algorithm
@@ -80,8 +81,7 @@ public class SelectExecutor {
 				boolean sorted = false;
 				if (orderByNode != null) {
 					// Sort by given order
-					HelperFunctions.onePassSort(matchedTuples,
-							orderByNode.getBranches().get(0).getBranches().get(0).getType());
+					HelperFunctions.onePassSort(matchedTuples, orderByNode.getFirstChild().getFirstChild().getType());
 					sorted = true;
 				}
 				if (hasDistinct) {
@@ -92,7 +92,10 @@ public class SelectExecutor {
 					// remove duplicate
 					HelperFunctions.removeDuplicateTuplesOnePass(matchedTuples, selectColumnList);
 				}
-				// TODO print header and tuples
+				// print header and tuples
+				printHeader(matchedTuples.get(0), selectColumnList);
+				for (Tuple tuple : matchedTuples)
+					printTuple(tuple, selectColumnList);
 			} else {
 				// Two pass algorithm
 				if (orderByNode == null && !hasDistinct) {
@@ -101,7 +104,7 @@ public class SelectExecutor {
 				} else {
 					System.out.println("Select operation with order/distinct");
 					String orderField = orderByNode == null ? null
-							: orderByNode.getBranches().get(0).getBranches().get(0).getType();
+							: orderByNode.getFirstChild().getFirstChild().getType();
 					complexSelectQuery(memory, schemaManager, table, selectColumnList, whereNode, orderField,
 							hasDistinct);
 				}
@@ -114,7 +117,7 @@ public class SelectExecutor {
 	private void simpleSelectQuery(MainMemory memory, Relation table, List<String> selectColumnList,
 			StatementNode whereNode) {
 		int index = 0;
-		// TODO print header
+		boolean headerPrinted = false;
 		while (index < table.getNumOfBlocks()) {
 			int blocksToRead = 0;
 			if (table.getNumOfBlocks() - index > memory.getMemorySize())
@@ -124,9 +127,15 @@ public class SelectExecutor {
 
 			table.getBlocks(index, 0, blocksToRead);
 			List<Tuple> tuples = memory.getTuples(0, blocksToRead);
+			if (!headerPrinted) {
+				// print header
+				printHeader(tuples.get(0), selectColumnList);
+				headerPrinted = true;
+			}
 			for (Tuple tuple : tuples) {
 				if (whereNode == null || ExpressionEvaluator.evaluateLogicalOperator(whereNode, tuple)) {
-					// TODO print tuple
+					// print tuple
+					printTuple(tuple, selectColumnList);
 				}
 			}
 			index += blocksToRead;
@@ -177,9 +186,11 @@ public class SelectExecutor {
 			if (hasDistinct) {
 				HelperFunctions.removeDuplicateTuplesOnePass(tuples, selectColumnList);
 			}
-			// TODO print header
+			// print header
+			printHeader(tuples.get(0), selectColumnList);
 			for (Tuple tuple : tuples) {
-				// TODO print tuple
+				// print tuple
+				printTuple(tuple, selectColumnList);
 			}
 		} else {
 			// two pass for sort and duplicate removal
@@ -196,6 +207,32 @@ public class SelectExecutor {
 			}
 		}
 
+	}
+
+	private void printHeader(Tuple tuple, List<String> columnList) {
+		if (columnList.get(0).equals("*")) {
+			for (String fieldNames : tuple.getSchema().getFieldNames()) {
+				System.out.print(fieldNames + "   ");
+			}
+			System.out.println();
+		} else {
+			for (String str : columnList) {
+				System.out.print(str + "    ");
+			}
+			System.out.println();
+		}
+	}
+
+	private void printTuple(Tuple tuple, List<String> columnList) {
+		if (columnList.get(0).equals("*")) {
+			System.out.println(tuple);
+			return;
+		}
+		for (String field : columnList) {
+			System.out.print((tuple.getSchema().getFieldType(field) == FieldType.INT ? tuple.getField(field).integer
+					: tuple.getField(field).str) + "   ");
+		}
+		System.out.println();
 	}
 
 }

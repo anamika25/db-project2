@@ -33,7 +33,7 @@ public class DeleteExecutor {
 			System.exit(0);
 		}
 
-		Relation relationToDelete = parameter.getSchemaManager().getRelation(tableNode.getBranches().get(0).getType());
+		Relation relationToDelete = parameter.getSchemaManager().getRelation(tableNode.getFirstChild().getType());
 		if (whereExpression == null) {
 			relationToDelete.deleteBlocks(0);
 		} else {
