@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import parser.StatementNode;
+import storageManager.Block;
 import storageManager.MainMemory;
 import storageManager.Relation;
+import storageManager.Schema;
 import storageManager.SchemaManager;
 import storageManager.Tuple;
 
@@ -78,20 +80,122 @@ public class SelectExecutor {
 				boolean sorted = false;
 				if (orderByNode != null) {
 					// Sort by given order
+					HelperFunctions.onePassSort(matchedTuples,
+							orderByNode.getBranches().get(0).getBranches().get(0).getType());
 					sorted = true;
 				}
 				if (hasDistinct) {
 					if (!sorted) {
 						// sort naturally
+						HelperFunctions.onePassSort(matchedTuples, null);
 					}
 					// remove duplicate
+					HelperFunctions.removeDuplicateTuplesOnePass(matchedTuples, selectColumnList);
 				}
+				// TODO print header and tuples
 			} else {
 				// Two pass algorithm
+				if (orderByNode == null && !hasDistinct) {
+					System.out.println("Select operation without distinct and Order By");
+					simpleSelectQuery(memory, table, selectColumnList, whereNode);
+				} else {
+					System.out.println("Select operation with order/distinct");
+					String orderField = orderByNode == null ? null
+							: orderByNode.getBranches().get(0).getBranches().get(0).getType();
+					complexSelectQuery(memory, schemaManager, table, selectColumnList, whereNode, orderField,
+							hasDistinct);
+				}
 			}
 		} else {
 			// Multiple tables
 		}
+	}
+
+	private void simpleSelectQuery(MainMemory memory, Relation table, List<String> selectColumnList,
+			StatementNode whereNode) {
+		int index = 0;
+		// TODO print header
+		while (index < table.getNumOfBlocks()) {
+			int blocksToRead = 0;
+			if (table.getNumOfBlocks() - index > memory.getMemorySize())
+				blocksToRead = memory.getMemorySize();
+			else
+				blocksToRead = table.getNumOfBlocks() - index;
+
+			table.getBlocks(index, 0, blocksToRead);
+			List<Tuple> tuples = memory.getTuples(0, blocksToRead);
+			for (Tuple tuple : tuples) {
+				if (whereNode == null || ExpressionEvaluator.evaluateLogicalOperator(whereNode, tuple)) {
+					// TODO print tuple
+				}
+			}
+			index += blocksToRead;
+		}
+	}
+
+	private void complexSelectQuery(MainMemory memory, SchemaManager schemaManager, Relation table,
+			List<String> selectColumnList, StatementNode whereNode, String orderField, boolean hasDistinct) {
+		// if where clause is given
+		if (whereNode != null) {
+			Schema schema = table.getSchema();
+			Relation tempTable = schemaManager.createRelation(table.getRelationName() + "_temp", schema);
+			Block tempBlock = memory.getBlock(1);
+			tempBlock.clear();
+			int tempTableIndex = 0;
+			for (int i = 0; i < table.getNumOfBlocks(); i++) {
+				table.getBlock(i, 0);
+				ArrayList<Tuple> tuples = memory.getBlock(0).getTuples();
+				for (Tuple tuple : tuples) {
+					if (ExpressionEvaluator.evaluateLogicalOperator(whereNode, tuple)) {
+						if (!tempBlock.isFull())
+							tempBlock.appendTuple(tuple);
+						else {
+							memory.setBlock(1, tempBlock);
+							tempBlock.clear();
+							tempBlock.appendTuple(tuple);
+							tempTable.setBlock(tempTableIndex, 1);
+							tempTableIndex += 1;
+						}
+					}
+				}
+			}
+
+			if (!tempBlock.isEmpty()) {
+				memory.setBlock(1, tempBlock);
+				tempTable.setBlock(tempTableIndex, 1);
+				tempBlock.clear();
+			}
+			table = tempTable;
+		}
+		// table not contains only selected tuples
+
+		if (table.getNumOfBlocks() <= memory.getMemorySize()) {
+			// selected tuples can be processed in one-pass
+			table.getBlocks(0, 0, table.getNumOfBlocks());
+			ArrayList<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
+			HelperFunctions.onePassSort(tuples, orderField);
+			if (hasDistinct) {
+				HelperFunctions.removeDuplicateTuplesOnePass(tuples, selectColumnList);
+			}
+			// TODO print header
+			for (Tuple tuple : tuples) {
+				// TODO print tuple
+			}
+		} else {
+			// two pass for sort and duplicate removal
+			if (selectColumnList.get(0).equals("*")) {
+				selectColumnList = table.getSchema().getFieldNames();
+			}
+			if (hasDistinct && orderField != null) {
+				table = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table, selectColumnList, true);
+				HelperFunctions.twoPassSort(schemaManager, memory, table, orderField, false);
+			} else if (hasDistinct) {
+				HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table, selectColumnList, false);
+			} else if (orderField != null) {
+				HelperFunctions.twoPassSort(schemaManager, memory, table, orderField, false);
+			}
+		}
+
 	}
 
 }

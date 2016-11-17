@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Stack;
 
 import main.Constants;
+import main.HelperFunctions;
 
 /**
  * Parse raw query and return the parse tree
@@ -265,7 +266,7 @@ public class Parser {
 				} else {
 					stack.push(new StatementNode(tokens[i], false));
 				}
-			} else if (isInteger(tokens[i])) {
+			} else if (HelperFunctions.isInteger(tokens[i])) {
 				stack.push(leaf(tokens[i], Constants.INT));
 			} else if (tokens[i].charAt(0) == '"') {
 				stack.push(leaf(tokens[i].substring(1, tokens[i].length() - 1), Constants.STRING));
@@ -321,15 +322,6 @@ public class Parser {
 			return operant;
 		} else {
 			return stack.peek();
-		}
-	}
-
-	public static boolean isInteger(String s) {
-		try {
-			Integer.parseInt(s);
-			return true;
-		} catch (NumberFormatException err) {
-			return false;
 		}
 	}
 
