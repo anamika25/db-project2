@@ -1,7 +1,10 @@
 package main;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import parser.StatementNode;
 import storageManager.Block;
@@ -110,8 +113,139 @@ public class SelectExecutor {
 				}
 			}
 		} else {
-			// Multiple tables
+			// TODO Multiple tables
+			if (whereNode != null && whereNode.getFirstChild().getType().equals(Constants.EQUAL)) {
+				StatementNode equalityNode = whereNode.getFirstChild();
+				StatementNode firstOperand = equalityNode.getFirstChild();
+				StatementNode secondOperand = equalityNode.getBranches().get(1);
+				if (!firstOperand.getType().equals(Constants.COLUMN_NAME)
+						|| !secondOperand.getType().equals(Constants.COLUMN_NAME)) {
+					System.out.println("Wring parse tree for where condition. Exiting!!!");
+					System.exit(0);
+				}
+				String table1 = firstOperand.getFirstChild().getType().split(".")[0];
+				String column1 = firstOperand.getFirstChild().getType().split(".")[1];
+				String table2 = secondOperand.getFirstChild().getType().split(".")[0];
+				String column2 = secondOperand.getFirstChild().getType().split(".")[1];
+
+				// if natural join can be applied
+				if (column1.equals(column2)) {
+					Relation r = HelperFunctions.naturalJoin(schemaManager, memory, table1, table2, column1, true);
+
+					if (!hasDistinct && orderByNode == null) {
+						HelperFunctions.filter(schemaManager, memory, r, whereNode, selectColumnList, false);
+						return;
+					}
+					Relation r1 = HelperFunctions.filter(schemaManager, memory, r, whereNode, selectColumnList, true);
+					if (hasDistinct && orderByNode == null) {
+						if (selectColumnList.get(0).equals("*")) {
+							selectColumnList = r1.getSchema().getFieldNames();
+						}
+						if (r1.getNumOfBlocks() < memory.getMemorySize())
+							HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1, selectColumnList,
+									false);
+						else
+							HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1, selectColumnList, false);
+						return;
+					}
+					if (!hasDistinct && orderByNode != null) {
+						if (r1.getNumOfBlocks() < memory.getMemorySize())
+							HelperFunctions.onePassSortWrapper(schemaManager, memory, r1,
+									orderByNode.getFirstChild().getFirstChild().getType(), false);
+						else
+							HelperFunctions.twoPassSort(schemaManager, memory, r1,
+									orderByNode.getFirstChild().getFirstChild().getType(), false);
+						return;
+					}
+					if (hasDistinct && orderByNode != null) {
+						if (selectColumnList.get(0).equals("*")) {
+							selectColumnList = r1.getSchema().getFieldNames();
+						}
+						Relation tempRelation;
+						if (r1.getNumOfBlocks() < memory.getMemorySize())
+							tempRelation = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
+									selectColumnList, true);
+						else
+							tempRelation = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
+									selectColumnList, true);
+						if (r1.getNumOfBlocks() < memory.getMemorySize())
+							HelperFunctions.onePassSortWrapper(schemaManager, memory, tempRelation,
+									orderByNode.getFirstChild().getFirstChild().getType(), false);
+						else
+							HelperFunctions.twoPassSort(schemaManager, memory, tempRelation,
+									orderByNode.getFirstChild().getFirstChild().getType(), false);
+						return;
+					}
+					return;
+				}
+			}
+
+			// not natural join, cross join
+			ArrayList<String> relationList = new ArrayList<>();
+			for (StatementNode table : fromNode.getBranches()) {
+				assert table.getType().equalsIgnoreCase(Constants.TABLE);
+				relationList.add(table.getFirstChild().getType());
+			}
+
+			if (!hasDistinct && orderByNode == null && columnsNode.getFirstChild().getFirstChild().getType().equals("*")
+					&& whereNode == null) {
+				multiRelationCrossJoin(schemaManager, memory, relationList, false);
+				return;
+			}
+			Relation relationAfterCross = multiRelationCrossJoin(schemaManager, memory, relationList, true);
+
+			ArrayList<String> fields = new ArrayList<>();
+			for (StatementNode nodes : columnsNode.getBranches()) {
+				fields.add(nodes.getFirstChild().getType());
+			}
+
+			if (whereNode != null) {
+				if (!hasDistinct && orderByNode == null) {
+					HelperFunctions.filter(schemaManager, memory, relationAfterCross, whereNode, fields, false);
+					return;
+				} else {
+					relationAfterCross = HelperFunctions.filter(schemaManager, memory, relationAfterCross, whereNode,
+							fields, true);
+				}
+			}
+
+			if (hasDistinct) {
+				if (fields.get(0).equals("*")) {
+					fields = relationAfterCross.getSchema().getFieldNames();
+				}
+				if (orderByNode == null) {
+					if (relationAfterCross.getNumOfBlocks() < memory.getMemorySize())
+						HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, relationAfterCross,
+								fields, false);
+					else
+						return;
+				} else {
+					relationAfterCross = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory,
+							relationAfterCross, fields, true);
+				}
+			}
+
+			if (orderByNode != null) {
+				HelperFunctions.onePassSortWrapper(schemaManager, memory, relationAfterCross,
+						orderByNode.getFirstChild().getFirstChild().getType(), false);
+				return;
+			}
+
+			if (whereNode == null && !fields.get(0).equals("*")) {
+				int total = relationAfterCross.getNumOfBlocks();
+				for (int i = 0; i < total; i++) {
+					relationAfterCross.getBlock(i, 0);
+					ArrayList<Tuple> tuples = memory.getBlock(0).getTuples();
+					for (Tuple tp : tuples) {
+						for (String f : fields) {
+							System.out.print(tp.getField(f).toString() + "  ");
+						}
+						System.out.println();
+					}
+				}
+			}
 		}
+		return;
 	}
 
 	private void simpleSelectQuery(MainMemory memory, Relation table, List<String> selectColumnList,
@@ -176,7 +310,7 @@ public class SelectExecutor {
 			}
 			table = tempTable;
 		}
-		// table not contains only selected tuples
+		// table now contains only selected tuples
 
 		if (table.getNumOfBlocks() <= memory.getMemorySize()) {
 			// selected tuples can be processed in one-pass
@@ -207,6 +341,69 @@ public class SelectExecutor {
 			}
 		}
 
+	}
+
+	public static Relation multiRelationCrossJoin(SchemaManager schemaManager, MainMemory memory,
+			ArrayList<String> relationName, boolean returnTable) {
+		int memsize = memory.getMemorySize();
+		if (relationName.size() == 2) {
+			return HelperFunctions.executeCrossJoin(schemaManager, memory, relationName, returnTable);
+		} else {
+			// DP algorithm to determine join order
+			HashMap<Set<String>, CrossRelation> singleRelation = new HashMap<>();
+			for (String name : relationName) {
+				HashSet<String> set = new HashSet<>();
+				set.add(name);
+				Relation relation = schemaManager.getRelation(name);
+				CrossRelation temp = new CrossRelation(set, relation.getNumOfBlocks(), relation.getNumOfTuples());
+				temp.cost = relation.getNumOfBlocks();
+				temp.fieldNum = relation.getSchema().getNumOfFields();
+				singleRelation.put(set, temp);
+			}
+			List<HashMap<Set<String>, CrossRelation>> costRelationList = new ArrayList<>();
+			costRelationList.add(singleRelation);
+			for (int i = 1; i < relationName.size(); i++) {
+				costRelationList.add(new HashMap<Set<String>, CrossRelation>());
+			}
+
+			Set<String> finalGoal = new HashSet<>(relationName);
+			CrossRelation cr = Algorithms.findOptimal(costRelationList, finalGoal, memsize);
+			Algorithms.travesal(cr, 0);
+			if (mode == 0) {
+				helper(cr, memory, schemaManager, 0);
+			} else {
+				return helper(cr, memory, schemaManager, 1);
+			}
+
+			// TODO
+			return null;
+		}
+	}
+
+	public static Relation helper(CrossRelation cr, MainMemory mem, SchemaManager schemaManager, int mode) {
+		// mode 0 display, mode 1 output
+		if (cr.joinBy == null || cr.joinBy.size() < 2) {
+			List<String> relation = new ArrayList<>(cr.subRelation);
+			assert relation.size() == 1;
+			return schemaManager.getRelation(relation.get(0));
+		} else {
+			assert cr.joinBy.size() == 2;
+			if (mode == 0) {
+				String subRelation1 = helper(cr.joinBy.get(0), mem, schemaManager, 1).getRelationName();
+				String subRelation2 = helper(cr.joinBy.get(1), mem, schemaManager, 1).getRelationName();
+				ArrayList<String> relationName = new ArrayList<>();
+				relationName.add(subRelation1);
+				relationName.add(subRelation2);
+				return Api.executeCrossJoin(schemaManager, mem, relationName, 0);
+			} else {
+				String subRelation1 = helper(cr.joinBy.get(0), mem, schemaManager, 1).getRelationName();
+				String subRelation2 = helper(cr.joinBy.get(1), mem, schemaManager, 1).getRelationName();
+				ArrayList<String> relationName = new ArrayList<>();
+				relationName.add(subRelation1);
+				relationName.add(subRelation2);
+				return Api.executeCrossJoin(schemaManager, mem, relationName, 1);
+			}
+		}
 	}
 
 	private void printHeader(Tuple tuple, List<String> columnList) {
