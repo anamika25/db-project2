@@ -22,11 +22,11 @@ public class InsertExecutor {
 		SchemaManager schemaManager= parameter.getSchemaManager();
 		assert schemaManager != null;
 		MainMemory memory= parameter.getMemory();
-        assert mem != null;
+        assert memory != null;
 
         List<StatementNode> insertParseTree = parameter.getParseTreeRoot().getBranches();
-        List<String> colList;
-        ArrayList<String> valueList = new ArrayList<String>();
+        //List<String> colList;
+        //ArrayList<String> valueList = new ArrayList<String>();
         String tableName=null;
         //ExecutionParameter col = new ExecutionParameter();
         List<StatementNode> columns = null;
@@ -38,26 +38,28 @@ public class InsertExecutor {
                 columns =statementNode.getBranches();
             } else if (type.equalsIgnoreCase(Constants.VALUES)) {
                 Relation relation = schemaManager.getRelation(tableName);
-                Tuple newTuple = relation.createTuple();
+                Tuple tuple = relation.createTuple();
                 assert columns != null;
                 int i = 0;
                 for (StatementNode field : columns) {
-                	
+ 
                     assert field.getType().equalsIgnoreCase(Constants.COLUMN_NAME);
                     assert field.getBranches().size() == 1;
-                    assert newTuple.getSchema().getFieldType(field.getFirstChild().getType()) != null;
+                    String fieldType= field.getFirstChild().getType();
+      
+                    assert tuple.getSchema().getFieldType(fieldType) != null;
                     assert statementNode.getBranches().get(i).getType().equalsIgnoreCase("VALUE");
                     
                     String value = statementNode.getBranches().get(i).getFirstChild().getType();
-                    String fieldType= field.getFirstChild().getType();
-                    if(newTuple.getSchema().getFieldType(fieldType).equals(FieldType.INT)) {
-                        newTuple.setField(fieldType, Integer.parseInt(value));
+                    
+                    if(tuple.getSchema().getFieldType(fieldType).equals(FieldType.INT)) {
+                        tuple.setField(fieldType, Integer.parseInt(value));
                     } else {
-                        newTuple.setField(fieldType, value);
+                        tuple.setField(fieldType, value);
                     }
                     i += 1;
                 }
-                appendTupleToRelation(relation, memory, 0, newTuple);
+                appendTupleToRelation(relation, memory, 0, tuple);
             } else if (type.equalsIgnoreCase(Constants.SELECT)) {
                 /**
                  * Leave blank for case INSERT FROM SELECT
