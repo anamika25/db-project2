@@ -122,7 +122,8 @@ public class HelperFunctions {
 	              else{
 	                /* If is order by */
 	                System.out.println("SELECT: ordered table scan\n");
-	                executeOrderBy(schemaManager,memory,relation,orderField,0);
+	                String key = parts[orderIndex+2];
+	                executeOrderBy(schemaManager,memory,relation,orderField,0,key);
 	                return null;
 	              }
 	            }else{
@@ -401,41 +402,16 @@ public class HelperFunctions {
 	public static Relation executeOrderBy(SchemaManager schemaManager, MainMemory memory, Relation table, ArrayList<String> fieldList,int mode){
 	    /* Only fields of 1 relation will be ordered in the test case*/
 	    ArrayList<Tuple> output = new ArrayList<Tuple>();
+	    Schema schema = output.get(0).getSchema();
+	    Relation orderedTable = schemaManager.createRelation(table.getRelationName()+"ordered",schema); 
 	    if(table.getNumOfBlocks()<memory.getMemorySize()) {
-	      //one pass for sort of 1 relation
 	      System.out.println("SELECT: One pass for sorting on 1 relation\n");
-			//List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
-			//List<Tuple> matchedTuples = new ArrayList<Tuple>();
-	      output = onePassSort(table, memory, fieldList);
+			List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
+	      output = onePassSort(tuples, key);
 	    }else{
 	      System.out.println("SELECT: Two pass for sorting on 1 relation\n");
-	      output = twoPassSort(table,memory,fieldList);
-	    }
-	    /* Handle output */
-	    if(mode==0){
-	      System.out.println(table.getSchema().fieldNamesToString());
-	      for(Tuple t:output)
-	        System.out.println(t);
-	      return null;
-	    }else{
-	      Schema schema = output.get(0).getSchema();
-	      if(schemaManager.relationExists(table.getRelationName()+"ordered"))
-	    	  schemaManager.deleteRelation(table.getRelationName()+"ordered");
-	      Relation orderedtable = schemaManager.createRelation(table.getRelationName()+"ordered",schema);
-	      int count = 0;
-	      Block block = memory.getBlock(0);
-	      while(!output.isEmpty()){
-	    	  block.clear();
-	        for(int i=0;i<schema.getTuplesPerBlock();i++){
-	          if(!output.isEmpty()){
-	            Tuple t = output.get(0);
-	            block.setTuple(i,t);
-	            output.remove(t);
-	          }
-	        }
-	        orderedtable.setBlock(count++,0);
-	      }
-	      return orderedtable;
+	      orderedTable = twoPassSort(schemaManager, memory, table,key,mode);
+	      return orderedTable;
 	    }
 	  }
 	
