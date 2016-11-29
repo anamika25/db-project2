@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import parser.StatementNode;
@@ -181,18 +182,17 @@ public class SelectExecutor {
 			}
 
 			// not natural join, cross join
-			ArrayList<String> relationList = new ArrayList<>();
+			ArrayList<String> tableList = new ArrayList<>();
 			for (StatementNode table : fromNode.getBranches()) {
-				assert table.getType().equalsIgnoreCase(Constants.TABLE);
-				relationList.add(table.getFirstChild().getType());
+				tableList.add(table.getFirstChild().getType());
 			}
 
 			if (!hasDistinct && orderByNode == null && columnsNode.getFirstChild().getFirstChild().getType().equals("*")
 					&& whereNode == null) {
-				multiRelationCrossJoin(schemaManager, memory, relationList, false);
+				multiRelationCrossJoin(schemaManager, memory, tableList, false);
 				return;
 			}
-			Relation relationAfterCross = multiRelationCrossJoin(schemaManager, memory, relationList, true);
+			Relation relationAfterCross = multiRelationCrossJoin(schemaManager, memory, tableList, true);
 
 			ArrayList<String> fields = new ArrayList<>();
 			for (StatementNode nodes : columnsNode.getBranches()) {
@@ -344,35 +344,34 @@ public class SelectExecutor {
 	}
 
 	public static Relation multiRelationCrossJoin(SchemaManager schemaManager, MainMemory memory,
-			ArrayList<String> relationName, boolean returnTable) {
-		int memsize = memory.getMemorySize();
-		if (relationName.size() == 2) {
-			return HelperFunctions.executeCrossJoin(schemaManager, memory, relationName, returnTable);
+			ArrayList<String> tableNames, boolean returnTable) {
+		if (tableNames.size() == 2) {
+			return HelperFunctions.executeCrossJoin(schemaManager, memory, tableNames, returnTable);
 		} else {
 			// DP algorithm to determine join order
-			HashMap<Set<String>, CrossRelation> singleRelation = new HashMap<>();
-			for (String name : relationName) {
-				HashSet<String> set = new HashSet<>();
-				set.add(name);
-				Relation relation = schemaManager.getRelation(name);
-				CrossRelation temp = new CrossRelation(set, relation.getNumOfBlocks(), relation.getNumOfTuples());
-				temp.cost = relation.getNumOfBlocks();
-				temp.fieldNum = relation.getSchema().getNumOfFields();
+			Map<Set<String>, CrossJoinTables> singleRelation = new HashMap<Set<String>, CrossJoinTables>();
+			for (String tableName : tableNames) {
+				HashSet<String> set = new HashSet<String>();
+				set.add(tableName);
+				Relation table = schemaManager.getRelation(tableName);
+				CrossJoinTables temp = new CrossJoinTables(set, table.getNumOfBlocks(), table.getNumOfTuples());
+				temp.setCost(table.getNumOfBlocks());
+				temp.setNumFields(table.getSchema().getNumOfFields());
 				singleRelation.put(set, temp);
 			}
-			List<HashMap<Set<String>, CrossRelation>> costRelationList = new ArrayList<>();
+			List<Map<Set<String>, CrossJoinTables>> costRelationList = new ArrayList<Map<Set<String>, CrossJoinTables>>();
 			costRelationList.add(singleRelation);
-			for (int i = 1; i < relationName.size(); i++) {
-				costRelationList.add(new HashMap<Set<String>, CrossRelation>());
+			for (int i = 1; i < tableNames.size(); i++) {
+				costRelationList.add(new HashMap<Set<String>, CrossJoinTables>());
 			}
 
-			Set<String> finalGoal = new HashSet<>(relationName);
-			CrossRelation cr = Algorithms.findOptimal(costRelationList, finalGoal, memsize);
-			Algorithms.travesal(cr, 0);
-			if (mode == 0) {
-				helper(cr, memory, schemaManager, 0);
+			Set<String> finalGoal = new HashSet<String>(tableNames);
+			CrossJoinTables cr = HelperFunctions.findOptimal(costRelationList, finalGoal, memory.getMemorySize());
+			HelperFunctions.travesal(cr, 0);
+			if (!returnTable) {
+				helper(cr, memory, schemaManager, false);
 			} else {
-				return helper(cr, memory, schemaManager, 1);
+				return helper(cr, memory, schemaManager, true);
 			}
 
 			// TODO
@@ -380,28 +379,23 @@ public class SelectExecutor {
 		}
 	}
 
-	public static Relation helper(CrossRelation cr, MainMemory mem, SchemaManager schemaManager, int mode) {
-		// mode 0 display, mode 1 output
-		if (cr.joinBy == null || cr.joinBy.size() < 2) {
-			List<String> relation = new ArrayList<>(cr.subRelation);
+	public static Relation helper(CrossJoinTables cr, MainMemory mem, SchemaManager schemaManager,
+			boolean returnTable) {
+		if (cr.getJoinBy() == null || cr.getJoinBy().size() < 2) {
+			List<String> relation = new ArrayList<>(cr.getTables());
 			assert relation.size() == 1;
 			return schemaManager.getRelation(relation.get(0));
 		} else {
-			assert cr.joinBy.size() == 2;
-			if (mode == 0) {
-				String subRelation1 = helper(cr.joinBy.get(0), mem, schemaManager, 1).getRelationName();
-				String subRelation2 = helper(cr.joinBy.get(1), mem, schemaManager, 1).getRelationName();
-				ArrayList<String> relationName = new ArrayList<>();
-				relationName.add(subRelation1);
-				relationName.add(subRelation2);
-				return Api.executeCrossJoin(schemaManager, mem, relationName, 0);
+			assert cr.getJoinBy().size() == 2;
+			String subRelation1 = helper(cr.getJoinBy().get(0), mem, schemaManager, true).getRelationName();
+			String subRelation2 = helper(cr.getJoinBy().get(1), mem, schemaManager, true).getRelationName();
+			ArrayList<String> relationName = new ArrayList<String>();
+			relationName.add(subRelation1);
+			relationName.add(subRelation2);
+			if (!returnTable) {
+				return HelperFunctions.executeCrossJoin(schemaManager, mem, relationName, false);
 			} else {
-				String subRelation1 = helper(cr.joinBy.get(0), mem, schemaManager, 1).getRelationName();
-				String subRelation2 = helper(cr.joinBy.get(1), mem, schemaManager, 1).getRelationName();
-				ArrayList<String> relationName = new ArrayList<>();
-				relationName.add(subRelation1);
-				relationName.add(subRelation2);
-				return Api.executeCrossJoin(schemaManager, mem, relationName, 1);
+				return HelperFunctions.executeCrossJoin(schemaManager, mem, relationName, true);
 			}
 		}
 	}

@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import parser.StatementNode;
 import storageManager.Block;
@@ -233,47 +236,38 @@ public class HelperFunctions {
 	    return null;
 	}
 	
-	  public static Relation executeCrossJoin(SchemaManager schemaManager, MainMemory memory, ArrayList<String> tableName, int mode){
-		    ArrayList<Tuple> output;
-		    Relation relation;
-		    if(tableName.size()==2){
+	  public static Relation executeCrossJoin(SchemaManager schemaManager, MainMemory memory, ArrayList<String> tableNames, boolean returnTable){
+		    
+		    if(!tableNames.isEmpty() && tableNames.size()==2){
+		      String table1 = tableNames.get(0);
+		      String table2 = tableNames.get(1);
+		      System.out.println("Applying cross join");
+		      Relation r = schemaManager.getRelation(table1);
+		      Relation s = schemaManager.getRelation(table2);
 
-		      String r1 = tableName.get(0);
-		      String r2 = tableName.get(1);
-		      System.out.println("SELECT: cross join from two relations\n");
-		      Relation r = schemaManager.getRelation(tableName.get(0));
-		      Relation s = schemaManager.getRelation(tableName.get(1));
-		      // System.out.println("SELECT: print block number of relation "+relationName.get(0)+" : "+r.getNumOfBlocks());
-		      // System.out.println("SELECT: print block number of relation "+relationName.get(1)+" : "+s.getNumOfBlocks()+"\n");
+		      Relation smallerTable = (r.getNumOfBlocks()<=s.getNumOfBlocks())?r:s;
 
-		      Relation smaller = (r.getNumOfBlocks()<=s.getNumOfBlocks())?r:s;
-
-		      /*Result can be printed directly, no need to reserve memory space to write back*/
-		      if(smaller.getNumOfBlocks()<memory.getMemorySize()-1){
-		        System.out.println("SELECT: cross join smaller relation can fit memory\n");
-		        output = onePassJoin(schemaManager,memory,tableName.get(0),tableName.get(1));
+		      ArrayList<Tuple> output;
+		      if(smallerTable.getNumOfBlocks()<memory.getMemorySize()-1){
+		        output = onePassJoin(schemaManager,memory,r,s);
 		      }else{
-		        System.out.println("SELECT: cross join smaller relation cannot fit memory\n");
-		        output = nestedJoin(schemaManager,memory,tableName.get(0),tableName.get(1));
+		        output = nestedJoin(schemaManager,memory,r,s);
 		      }
-		      if(mode==0){
-		      /* No need to write back */
+		      if(!returnTable){
 		        System.out.println(output.get(0).getSchema().fieldNamesToString());
 		        for(Tuple t:output){
 		          System.out.println(t);
 		        }
 		        return null;
 		      }else{
-		        Schema schema = mergeSchema(schemaManager,tableName.get(0),tableName.get(1));
-		        if(!schemaManager.relationExists(r1+"cross"+r2)){
-		          relation = schemaManager.createRelation(r1+"cross"+r2,schema);
+		        Schema schema = combineSchema(schemaManager,r,s);
+		        String crossTableName = table1+"_cross_"+table2;
+				if(schemaManager.relationExists(crossTableName)){
+					schemaManager.deleteRelation(crossTableName);
 		        }
-		        else{
-		        	schemaManager.deleteRelation(r1+"cross"+r2);
-		          relation = schemaManager.createRelation(r1+"cross"+r2,schema);
-		        }
-		        /*Need to be optimized to get block I/O*/
-		        int count = 0;
+				Relation table = schemaManager.createRelation(crossTableName,schema);
+
+				int count = 0;
 		        Block block = memory.getBlock(0);
 		        while(!output.isEmpty()){
 		        	block.clear();
@@ -284,12 +278,11 @@ public class HelperFunctions {
 		              output.remove(t);
 		            }
 		          }
-		          relation.setBlock(count++,0);
+		          table.setBlock(count++,0);
 		        }
-		        return relation;
+		        return table;
 		      }
 		    }else {
-		      // System.out.println("SELECT: Multiple relations join\n");
 		      return null;
 		    }
 		  }
@@ -350,72 +343,27 @@ public class HelperFunctions {
 		    }
 		  }
 	  
-	  public   static  Schema mergeSchema(SchemaManager schemaManager,String table1,String table2){
-		    Relation t1 = schemaManager.getRelation(table1);
-		    Relation t2 = schemaManager.getRelation(table2);
-
-		    ArrayList<String> table1FieldNames = t1.getSchema().getFieldNames();
-		    ArrayList<String> table2FieldNames = t2.getSchema().getFieldNames();
-
-		    ArrayList<FieldType> table1FieldType = t1.getSchema().getFieldTypes();
-		    ArrayList<FieldType> table2FieldType = t2.getSchema().getFieldTypes();
-
-		    ArrayList<String> newFieldNames = new ArrayList<String>();
-		    ArrayList<FieldType> newFieldTypes = new ArrayList<FieldType>();
-
-		    for(String str : table1FieldNames){
-		      if(!str.contains("\\.")){
-		        StringBuffer sb = new StringBuffer(str);
-		        sb.insert(0,table1+".");
-		        newFieldNames.add(sb.toString());
-		      }else{
-		        newFieldNames.add(str);
-		      }
-		    }
-
-		    for(String str : table2FieldNames){
-		      if(!str.contains("\\.")){
-		        StringBuffer sb = new StringBuffer(str);
-		        sb.insert(0,table2+".");
-		        newFieldNames.add(sb.toString());
-		      }else{
-		        newFieldNames.add(str);
-		      }
-		    }
-
-		    for(FieldType ft : table1FieldType) {
-		      newFieldTypes.add(ft);
-		    }
-		    for(FieldType ft : table2FieldType){
-		      newFieldTypes.add(ft);
-		    }
-
-		    Schema schema = new Schema(newFieldNames,newFieldTypes);
-		    return schema;
-		  }
 	  
-	  public static ArrayList<Tuple> onePassJoin(SchemaManager schemaManager, MainMemory memory, String table1, String table2){
-		    ArrayList<Tuple> output = new ArrayList<Tuple>();
+	  public static ArrayList<Tuple> onePassJoin(SchemaManager schemaManager, MainMemory memory, Relation table1, Relation table2){
 
-		    Relation t1 = schemaManager.getRelation(table1);
-		    Relation t2 = schemaManager.getRelation(table2);
-
-		    Relation smaller = (t1.getNumOfBlocks()<=t2.getNumOfBlocks())?t1:t2;
-		    Relation larger = (smaller==t1)?t2:t1;
+		    Relation smaller = (table1.getNumOfBlocks()<=table2.getNumOfBlocks())?table1:table2;
+		    Relation larger = (smaller==table1)?table2:table1;
 		    smaller.getBlocks(0,0,smaller.getNumOfBlocks());
 
-		    Schema schema = mergeSchema(schemaManager,table1,table2);
+		    Schema schema = combineSchema(schemaManager,table1,table2);
 
-		    if(schemaManager.relationExists(table1+"cross"+table2+"tmp"))
-		    	schemaManager.deleteRelation(table1+"cross"+table2+"tmp");
-		    Relation table = schemaManager.createRelation(table1+"cross"+table2+"tmp",schema);
+		    String tempTableName = table1+"_cross_"+table2+"_tmp";
+			if(schemaManager.relationExists(tempTableName))
+		    	schemaManager.deleteRelation(tempTableName);
+		    Relation table = schemaManager.createRelation(tempTableName,schema);
 
+		    ArrayList<Tuple> output = new ArrayList<Tuple>();
 		    for(int j=0;j<larger.getNumOfBlocks();j++){
 		      larger.getBlock(j,memory.getMemorySize()-1);
 		      Block largerblock = memory.getBlock(memory.getMemorySize()-1);
 		      for(Tuple tuple1 : memory.getTuples(0,smaller.getNumOfBlocks())){
 		        for(Tuple tuple2 : largerblock.getTuples()){
-		          if(smaller==t1){
+		          if(smaller==table1){
 		            output.add(mergeTuple(schemaManager,table,tuple1,tuple2));
 		          }else{
 		            output.add(mergeTuple(schemaManager,table,tuple2,tuple1));
@@ -426,27 +374,23 @@ public class HelperFunctions {
 		    return output;
 		  }
 	  
-	  public static ArrayList<Tuple> nestedJoin(SchemaManager schemaManager, MainMemory memory,String table1, String table2){
+	  public static ArrayList<Tuple> nestedJoin(SchemaManager schemaManager, MainMemory memory,Relation table1, Relation table2){
+		    Schema schema = combineSchema(schemaManager,table1,table2);
+		    String tempTableName = table1+"cross"+table2+"tmp";
+			if(schemaManager.relationExists(tempTableName))
+		    	schemaManager.deleteRelation(tempTableName);
+		    Relation table = schemaManager.createRelation(tempTableName,schema);
+
 		    ArrayList<Tuple> output = new ArrayList<Tuple>();
-
-		    Relation t1 = schemaManager.getRelation(table1);
-		    Relation t2 = schemaManager.getRelation(table2);
-
-		    Schema schema = mergeSchema(schemaManager,table1,table2);
-
-		    if(schemaManager.relationExists(table1+"cross"+table2+"tmp"))
-		    	schemaManager.deleteRelation(table1+"cross"+table2+"tmp");
-		    Relation relation = schemaManager.createRelation(table1+"cross"+table2+"tmp",schema);
-
-		    for(int i=0;i<t1.getNumOfBlocks();i++){
-		    	t1.getBlock(i,0);
+		    for(int i=0;i<table1.getNumOfBlocks();i++){
+		    	table1.getBlock(i,0);
 		      Block t1block = memory.getBlock(0);
-		      for(int j=0;j<t2.getNumOfBlocks();j++){
-		    	  t2.getBlock(j,1);
+		      for(int j=0;j<table2.getNumOfBlocks();j++){
+		    	  table2.getBlock(j,1);
 		        Block t2block = memory.getBlock(1);
 		        for(Tuple tuple1 : t1block.getTuples()){
 		          for(Tuple tuple2 : t2block.getTuples()){
-		            output.add(mergeTuple(schemaManager,relation,tuple1,tuple2));
+		            output.add(mergeTuple(schemaManager,table,tuple1,tuple2));
 		          }
 		        }
 		      }
@@ -454,29 +398,6 @@ public class HelperFunctions {
 		    return output;
 		  }
 
-	  
-	  public static Tuple mergeTuple(SchemaManager schemaManager, Relation table, Tuple t1, Tuple t2){
-		    Tuple t = table.createTuple();
-		    int size1 = t1.getNumOfFields();
-		    int size2 = t2.getNumOfFields();
-		    for(int i=0;i<size1+size2;i++){
-		      if(i<size1){
-		        String tupleType = t1.getField(i).toString();
-		        if(isInteger(tupleType))
-		          t.setField(i,Integer.parseInt(tupleType));
-		        else
-		          t.setField(i,tupleType);
-		      }else{
-		        String tupleType = t2.getField(i-size1).toString();
-		        if(isInteger(tupleType))
-		          t.setField(i,Integer.parseInt(tupleType));
-		        else
-		          t.setField(i,tupleType);
-		      }
-		    }
-		    return t;
-		  }
-	  
 	public static Relation executeOrderBy(SchemaManager schemaManager, MainMemory memory, Relation table, ArrayList<String> fieldList,int mode){
 	    /* Only fields of 1 relation will be ordered in the test case*/
 	    ArrayList<Tuple> output = new ArrayList<Tuple>();
@@ -1608,5 +1529,96 @@ public class HelperFunctions {
 			return newRelation;
 		}
 	}
+	
+	public static CrossJoinTables findOptimal(List<Map<Set<String>, CrossJoinTables>> tempRelations,
+			Set<String> allTables, int memorySize) {
+		// if recursion is complete
+		if (tempRelations.get(allTables.size() - 1).containsKey(allTables)) {
+			return tempRelations.get(allTables.size() - 1).get(allTables);
+		}
+		int block = 0;
+		int tuple = 0;
+		int fieldNum = 0;
+		int minCost = Integer.MAX_VALUE;
+		List<CrossJoinTables> joinBy = null;
+		List<PairOfSets> permutation = cutSet(allTables);
+		for (PairOfSets pair : permutation) {
+			Set<String> setOne = pair.getSet1();
+			Set<String> setTwo = pair.getSet2();
+			CrossJoinTables c1 = findOptimal(tempRelations, setOne, memorySize);
+			CrossJoinTables c2 = findOptimal(tempRelations, setTwo, memorySize);
+			if (c1.getCost() + c2.getCost() + calcCost(memorySize, c1.getNumBlocks(), c2.getNumBlocks()) < minCost) {
+				joinBy = new ArrayList<>();
+				joinBy.add(c1);
+				joinBy.add(c2);
+				tuple = c1.getNumTuples() * c2.getNumTuples();
+				block = blocksAfterJoin(c1.getNumTuples(), c2.getNumTuples(), 8, c1.getNumFields() + c2.getNumFields());
+				fieldNum = c1.getNumFields() + c2.getNumFields();
+				minCost = c1.getCost() + c2.getCost() + calcCost(memorySize, c1.getNumBlocks(), c2.getNumBlocks());
+			}
+		}
+
+		CrossJoinTables ret = new CrossJoinTables(allTables, block, tuple);
+		ret.setJoinBy(joinBy);
+		ret.setNumFields(fieldNum);
+		ret.setCost(minCost);
+		tempRelations.get(allTables.size() - 1).put(allTables, ret);
+		return ret;
+	}
+
+	public static List<PairOfSets> cutSet(Set<String> input) {
+		List<PairOfSets> result = new ArrayList<PairOfSets>();
+		for (int i = 1; i <= input.size() / 2; i++) {
+			Set<String> tmpSet = new HashSet<>(input);
+			Set<String> pickedSet = new HashSet<>();
+			helper(tmpSet, i, 0, pickedSet, result);
+		}
+		return result;
+	}
+
+	public static void helper(Set<String> input, int count, int startPos, Set<String> picked, List<PairOfSets> result) {
+		if (count == 0)
+			result.add(new PairOfSets(input, picked));
+		List<String> inputList = new ArrayList<String>(input);
+		for (int i = startPos; i < inputList.size(); i++) {
+			Set<String> inputTmp = new HashSet<String>(input);
+			Set<String> pickedTmp = new HashSet<String>(picked);
+			inputTmp.remove(inputList.get(i));
+			pickedTmp.add(inputList.get(i));
+			helper(inputTmp, count - 1, i, pickedTmp, result);
+		}
+	}
+
+	public static int blocksAfterJoin(int tupleNum1, int tupleNum2, int blockSize, int fieldPerTuple) {
+		int totalTuples = tuplesAfterJoin(tupleNum1, tupleNum2);
+		return totalTuples * fieldPerTuple % blockSize == 0 ? totalTuples * fieldPerTuple / blockSize
+				: totalTuples * fieldPerTuple / blockSize + 1;
+	}
+
+	public static int tuplesAfterJoin(int tupleNum1, int tupleNum2) {
+		return tupleNum1 * tupleNum2;
+	}
+
+	public static int calcCost(int memSize, int blockNum1, int blockNum2) {
+		if (Math.min(blockNum1, blockNum2) <= memSize)
+			return blockNum1 + blockNum2;
+		else
+			return blockNum1 * blockNum2 + Math.min(blockNum1, blockNum2);
+	}
+	
+	public static void travesal(CrossJoinTables relations, int level) {
+		for (int i = 0; i < level; i++) {
+			System.out.print(" ");
+		}
+		for (String str : relations.getTables()) {
+			System.out.print(str + " ");
+		}
+		System.out.println();
+		if (relations.getJoinBy() != null) {
+			for (CrossJoinTables cr : relations.getJoinBy()) {
+				travesal(cr, level + 1);
+			}
+		 }
+    }
 
 }
