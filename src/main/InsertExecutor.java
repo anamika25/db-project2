@@ -1,7 +1,6 @@
 package main;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import parser.StatementNode;
@@ -9,6 +8,7 @@ import storageManager.Block;
 import storageManager.FieldType;
 import storageManager.MainMemory;
 import storageManager.Relation;
+import storageManager.Schema;
 import storageManager.SchemaManager;
 import storageManager.Tuple;
 
@@ -54,11 +54,10 @@ public class InsertExecutor {
 				}
 				appendTupleToRelation(relation, memory, 0, tuple);
 			} else if (type.equalsIgnoreCase(Constants.SELECT)) {
-				Relation tempRelation = HelperFunctions.selectHandler(schemaManager, memory, "SELECT * FROM course", 1);
-				String[] tp = { "sid", "homework", "project", "exam", "grade" };
-				ArrayList<String> tempList = new ArrayList<>(Arrays.asList(tp));
-				HelperFunctions.insertFromSelect(schemaManager, memory, schemaManager.getRelation(tableName), tempList,
-						tempRelation);
+				ExecutionParameter selectParameter = new ExecutionParameter(statementNode, schemaManager, memory,
+						parameter.getDisk());
+				List<Tuple> tuples = new SelectExecutor().execute(selectParameter);
+				insertFromSelect(schemaManager, memory, schemaManager.getRelation(tableName), tuples);
 			}
 		}
 		System.out.println("Insert query executed");
@@ -82,6 +81,54 @@ public class InsertExecutor {
 				blockReference.appendTuple(tuple);
 				table.setBlock(table.getNumOfBlocks() - 1, memoryBlockIndex);
 			}
+		}
+	}
+
+	private static void insertFromSelect(SchemaManager schemaManager, MainMemory memory, Relation insertTable,
+			List<Tuple> tuples) {
+		ArrayList<FieldType> fieldTypes = new ArrayList<>();
+		Schema selectTuplesSchema = tuples.get(0).getSchema();
+		ArrayList<String> fields = selectTuplesSchema.getFieldNames();
+		if (fields.size() == 1 && fields.get(0).equals("*")) {
+			fields.remove(0);
+			for (int i = 0; i < selectTuplesSchema.getNumOfFields(); i++) {
+				fields.add(selectTuplesSchema.getFieldName(i));
+			}
+		}
+
+		for (String s : fields) {
+			fieldTypes.add(selectTuplesSchema.getFieldType(s));
+		}
+		Schema schema = new Schema(fields, fieldTypes);
+		if (schemaManager.relationExists("from_select"))
+			schemaManager.deleteRelation("from_select");
+
+		Relation relation = schemaManager.createRelation("from_select", schema);
+		Tuple tuple = relation.createTuple();
+		ArrayList<Tuple> output = new ArrayList<>();
+
+		for (Tuple t : tuples) {
+			for (int j = 0; j < fields.size(); j++) {
+				if (t.getField(fields.get(j)).type == FieldType.INT)
+					tuple.setField(j, Integer.parseInt(t.getField(fields.get(j)).toString()));
+				else
+					tuple.setField(j, t.getField(fields.get(j)).toString());
+			}
+			output.add(tuple);
+		}
+
+		int count = insertTable.getNumOfBlocks();
+		Block block = memory.getBlock(0);
+		while (!output.isEmpty()) {
+			block.clear();
+			for (int i = 0; i < schema.getTuplesPerBlock(); i++) {
+				if (!output.isEmpty()) {
+					Tuple t = output.get(0);
+					block.setTuple(i, t);
+					output.remove(t);
+				}
+			}
+			insertTable.setBlock(count++, 0);
 		}
 	}
 }

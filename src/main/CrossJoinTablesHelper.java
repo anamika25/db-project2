@@ -3,15 +3,15 @@ package main;
 import java.util.List;
 import java.util.Set;
 
-public class CrossJoinTables {
+public class CrossJoinTablesHelper {
 	private Set<String> tables;
 	private int numTuples;
 	private int numFields;
 	private int numBlocks;
-	private List<CrossJoinTables> joinBy;
+	private List<CrossJoinTablesHelper> joinBy;
 	private int cost = Integer.MAX_VALUE;
 
-	public CrossJoinTables(Set<String> s, int block, int tuple) {
+	public CrossJoinTablesHelper(Set<String> s, int block, int tuple) {
 		this.numBlocks = block;
 		this.numTuples = tuple;
 		this.tables = s;
@@ -57,11 +57,11 @@ public class CrossJoinTables {
 		this.cost = cost;
 	}
 
-	public List<CrossJoinTables> getJoinBy() {
+	public List<CrossJoinTablesHelper> getJoinBy() {
 		return joinBy;
 	}
 
-	public void setJoinBy(List<CrossJoinTables> joinBy) {
+	public void setJoinBy(List<CrossJoinTablesHelper> joinBy) {
 		this.joinBy = joinBy;
 	}
 

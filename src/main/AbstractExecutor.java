@@ -1,9 +1,12 @@
 package main;
 
+import java.util.List;
+
 import parser.StatementNode;
 import storageManager.Disk;
 import storageManager.MainMemory;
 import storageManager.SchemaManager;
+import storageManager.Tuple;
 
 /**
  * Class to call different query executors depending on query type
@@ -25,7 +28,11 @@ public class AbstractExecutor {
 			new InsertExecutor().execute(parameter);
 			break;
 		case Constants.SELECT:
-			new SelectExecutor().execute(parameter);
+			List<Tuple> tuples = new SelectExecutor().execute(parameter);
+			printHeader(tuples.get(0));
+			for (Tuple tuple : tuples) {
+				printTuple(tuple);
+			}
 			break;
 		case Constants.DELETE:
 			new DeleteExecutor().execute(parameter);
@@ -39,6 +46,17 @@ public class AbstractExecutor {
 		System.out.print("Calculated elapse time = " + (disk.getDiskTimer() - startDiskTime) + " ms" + "\n");
 		System.out.println("Calculated Disk I/Os = " + (disk.getDiskIOs() - startDiskIO) + "\n");
 
+	}
+
+	private void printHeader(Tuple tuple) {
+		for (String fieldNames : tuple.getSchema().getFieldNames()) {
+			System.out.print(fieldNames + "   ");
+		}
+		System.out.println();
+	}
+
+	private void printTuple(Tuple tuple) {
+		System.out.println(tuple);
 	}
 
 }
