@@ -123,10 +123,10 @@ public class SelectExecutor {
 					System.out.println("Wring parse tree for where condition. Exiting!!!");
 					System.exit(0);
 				}
-				String table1 = firstOperand.getFirstChild().getType().split(".")[0];
-				String column1 = firstOperand.getFirstChild().getType().split(".")[1];
-				String table2 = secondOperand.getFirstChild().getType().split(".")[0];
-				String column2 = secondOperand.getFirstChild().getType().split(".")[1];
+				String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
+				String column1 = firstOperand.getFirstChild().getType().split("\\.")[1];
+				String table2 = secondOperand.getFirstChild().getType().split("\\.")[0];
+				String column2 = secondOperand.getFirstChild().getType().split("\\.")[1];
 
 				// if natural join can be applied
 				if (column1.equals(column2)) {

@@ -46,7 +46,9 @@ public class ExpressionEvaluator {
 	public static int evaluateArithmeticOperator(StatementNode statement, Tuple tuple) {
 		switch (statement.getType()) {
 		case Constants.COLUMN_NAME:
-			return tuple.getField(statement.getFirstChild().getType()).integer;
+			String column = statement.getFirstChild().getType();
+			column = sanitize(column);
+			return tuple.getField(column).integer;
 
 		case Constants.INT:
 			return Integer.parseInt(statement.getFirstChild().getType());
@@ -94,6 +96,9 @@ public class ExpressionEvaluator {
 		} else if (firstOperand.getType().equals(Constants.INT)) {
 			firstType = Constants.INT;
 			firstValue = Integer.parseInt(firstOperand.getFirstChild().getType());
+		} else {
+			firstType = Constants.INT;
+			firstValue = evaluateArithmeticOperator(firstOperand, tuple);
 		}
 
 		if (secondOperand.getType().equals(Constants.COLUMN_NAME)) {
@@ -112,6 +117,9 @@ public class ExpressionEvaluator {
 		} else if (secondOperand.getType().equals(Constants.INT)) {
 			secondType = Constants.INT;
 			secondValue = Integer.parseInt(secondOperand.getFirstChild().getType());
+		} else {
+			secondType = Constants.INT;
+			secondValue = evaluateArithmeticOperator(firstOperand, tuple);
 		}
 
 		if (!firstType.equals(secondType))
@@ -119,6 +127,15 @@ public class ExpressionEvaluator {
 		else {
 			return firstValue.equals(secondValue);
 		}
+	}
+
+	public static String sanitize(String str) {
+		str = str.replace(",", "");
+		str = str.replace(";", "");
+		str = str.replace("(", "");
+		str = str.replace(")", "");
+		str = str.replace("\"", "");
+		return str;
 	}
 
 }

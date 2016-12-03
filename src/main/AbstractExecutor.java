@@ -32,10 +32,12 @@ public class AbstractExecutor {
 		case Constants.SELECT:
 			List<Tuple> tuples = new SelectExecutor().execute(parameter);
 
-			StatementNode columnsNode = null;
+			StatementNode columnsNode = null, fromNode = null;
 			for (StatementNode s : statement.getBranches()) {
 				if (s.getType().equalsIgnoreCase(Constants.COLUMNS))
 					columnsNode = s;
+				else if (s.getType().equalsIgnoreCase(Constants.FROM))
+					fromNode = s;
 			}
 			if (columnsNode.getFirstChild().getType().equalsIgnoreCase(Constants.DISTINCT)) {
 				columnsNode = columnsNode.getFirstChild();
@@ -44,7 +46,7 @@ public class AbstractExecutor {
 			List<String> headers = new ArrayList<String>();
 			for (StatementNode field : columnsNode.getBranches()) {
 				headers.add(field.getFirstChild().getType());
-				if (field.getFirstChild().getType().contains("."))
+				if (field.getFirstChild().getType().contains(".") && fromNode.getBranches().size() == 1)
 					field.getFirstChild().setType(field.getFirstChild().getType().split("\\.")[1]);
 				columns.add(field.getFirstChild().getType());
 			}

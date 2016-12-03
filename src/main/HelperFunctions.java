@@ -784,10 +784,11 @@ public class HelperFunctions {
 	}
 
 	public static ArrayList<ArrayList<Tuple>> deleteMin(ArrayList<ArrayList<Tuple>> tuples, String field, String val) {
-		for (ArrayList<Tuple> tup : tuples) {
-			for (Tuple t : tup) {
+		for (int i = 0; i < tuples.size(); i++) {
+			for (int j = 0; j < tuples.get(i).size(); j++) {
+				Tuple t = tuples.get(i).get(j);
 				if (t.getField(field).toString().equals(val)) {
-					tup.remove(t);
+					tuples.get(i).remove(t);
 				}
 			}
 		}
