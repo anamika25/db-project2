@@ -1,6 +1,7 @@
 package main;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -58,7 +59,7 @@ public class SelectExecutor {
 
 		// Select from single table
 		if (fromNode.getBranches().size() == 1) {
-			if (!fromNode.getFirstChild().equals(Constants.TABLE)) {
+			if (!fromNode.getFirstChild().getType().equals(Constants.TABLE)) {
 				System.out.println("Table node not found. Exiting!!!");
 				System.exit(0);
 			}
@@ -68,32 +69,32 @@ public class SelectExecutor {
 			// Condition for one pass algorithm
 			if (table.getNumOfBlocks() <= memory.getMemorySize()) {
 				table.getBlocks(0, 0, table.getNumOfBlocks());
-				List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
-				List<Tuple> matchedTuples = new ArrayList<Tuple>();
+				ArrayList<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
+				ArrayList<Tuple> matchedTuples = new ArrayList<Tuple>();
 				if (whereNode != null) {
 					for (Tuple t : tuples) {
 						if (ExpressionEvaluator.evaluateLogicalOperator(whereNode, t))
 							matchedTuples.add(t);
 					}
-				}
+				} else
+					matchedTuples = tuples;
+
 				if (matchedTuples.isEmpty()) {
 					System.out.println("No tuples found.");
 					return null;
 				}
 
-				boolean sorted = false;
-				if (orderByNode != null) {
-					// Sort by given order
-					HelperFunctions.onePassSort(matchedTuples, orderByNode.getFirstChild().getFirstChild().getType());
-					sorted = true;
-				}
 				if (hasDistinct) {
-					if (!sorted) {
-						// sort naturally
-						HelperFunctions.onePassSort(matchedTuples, null);
-					}
+					// sort by distinct columns
+					// HelperFunctions.onePassSort(matchedTuples,
+					// selectColumnList);
 					// remove duplicate
 					HelperFunctions.removeDuplicateTuplesOnePass(matchedTuples, selectColumnList);
+				}
+				if (orderByNode != null) {
+					// Sort by given order
+					HelperFunctions.onePassSort(matchedTuples,
+							new ArrayList<>(Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 				}
 				return matchedTuples;
 			} else {
@@ -148,22 +149,34 @@ public class SelectExecutor {
 							selectColumnList = r1.getSchema().getFieldNames();
 						}
 						List<Tuple> newTuples1 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize())
+						if (r1.getNumOfBlocks() < memory.getMemorySize()) {
+							// Relation temp =
+							// HelperFunctions.createTableFromTuples(schemaManager,
+							// memory,
+							// HelperFunctions.onePassSortWrapper(schemaManager,
+							// memory, r1, selectColumnList),
+							// "temp");
 							newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
 									selectColumnList);
-						else
+						} else {
+							// Relation temp =
+							// HelperFunctions.createTableFromTuples(schemaManager,
+							// memory,
+							// HelperFunctions.twoPassSort(schemaManager,
+							// memory, r1, selectColumnList), "temp");
 							newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
 									selectColumnList);
+						}
 						return newTuples1;
 					}
 					if (!hasDistinct && orderByNode != null) {
 						List<Tuple> newTuples1 = null;
 						if (r1.getNumOfBlocks() < memory.getMemorySize())
-							newTuples1 = HelperFunctions.onePassSortWrapper(schemaManager, memory, r1,
-									orderByNode.getFirstChild().getFirstChild().getType());
+							newTuples1 = HelperFunctions.onePassSortWrapper(schemaManager, memory, r1, new ArrayList<>(
+									Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 						else
-							newTuples1 = HelperFunctions.twoPassSort(schemaManager, memory, r1,
-									orderByNode.getFirstChild().getFirstChild().getType());
+							newTuples1 = HelperFunctions.twoPassSort(schemaManager, memory, r1, new ArrayList<>(
+									Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 						return newTuples1;
 					}
 					if (hasDistinct && orderByNode != null) {
@@ -171,22 +184,36 @@ public class SelectExecutor {
 							selectColumnList = r1.getSchema().getFieldNames();
 						}
 						List<Tuple> newTuples1 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize())
+						if (r1.getNumOfBlocks() < memory.getMemorySize()) {
+							// Relation temp =
+							// HelperFunctions.createTableFromTuples(schemaManager,
+							// memory,
+							// HelperFunctions.onePassSortWrapper(schemaManager,
+							// memory, r1, selectColumnList),
+							// "temp");
 							newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
 									selectColumnList);
-						else
+						} else {
+							// Relation temp =
+							// HelperFunctions.createTableFromTuples(schemaManager,
+							// memory,
+							// HelperFunctions.twoPassSort(schemaManager,
+							// memory, r1, selectColumnList), "temp");
 							newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
 									selectColumnList);
+						}
 						Relation tempRelation = HelperFunctions.createTableFromTuples(schemaManager, memory, newTuples1,
 								r1.getRelationName() + "_distinct");
 
 						List<Tuple> newTuples2 = null;
 						if (r1.getNumOfBlocks() < memory.getMemorySize())
 							newTuples2 = HelperFunctions.onePassSortWrapper(schemaManager, memory, tempRelation,
-									orderByNode.getFirstChild().getFirstChild().getType());
+									new ArrayList<>(
+											Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 						else
 							newTuples2 = HelperFunctions.twoPassSort(schemaManager, memory, tempRelation,
-									orderByNode.getFirstChild().getFirstChild().getType());
+									new ArrayList<>(
+											Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 						return newTuples2;
 					}
 					return null;
@@ -234,13 +261,30 @@ public class SelectExecutor {
 					fields = relationAfterCross.getSchema().getFieldNames();
 				}
 				if (orderByNode == null) {
-					if (relationAfterCross.getNumOfBlocks() < memory.getMemorySize())
+					if (relationAfterCross.getNumOfBlocks() < memory.getMemorySize()) {
+						// Relation temp =
+						// HelperFunctions.createTableFromTuples(schemaManager,
+						// memory,
+						// HelperFunctions.onePassSortWrapper(schemaManager,
+						// memory, relationAfterCross, fields),
+						// "temp");
 						return HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, relationAfterCross,
 								fields);
-					else
+					} else {
+						// Relation temp =
+						// HelperFunctions.createTableFromTuples(schemaManager,
+						// memory,
+						// HelperFunctions.twoPassSort(schemaManager, memory,
+						// relationAfterCross, fields), "temp");
 						return HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, relationAfterCross,
 								fields);
+					}
 				} else {
+					// Relation temp =
+					// HelperFunctions.createTableFromTuples(schemaManager,
+					// memory,
+					// HelperFunctions.twoPassSort(schemaManager, memory,
+					// relationAfterCross, fields), "temp");
 					relationAfterCross = HelperFunctions.createTableFromTuples(schemaManager, memory,
 							HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, relationAfterCross, fields),
 							"cross_join_distinct");
@@ -249,7 +293,7 @@ public class SelectExecutor {
 
 			if (orderByNode != null) {
 				return HelperFunctions.onePassSortWrapper(schemaManager, memory, relationAfterCross,
-						orderByNode.getFirstChild().getFirstChild().getType());
+						new ArrayList<>(Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
 			}
 
 			if (whereNode == null && !fields.get(0).equals("*")) {
@@ -328,10 +372,12 @@ public class SelectExecutor {
 			// selected tuples can be processed in one-pass
 			table.getBlocks(0, 0, table.getNumOfBlocks());
 			ArrayList<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
-			HelperFunctions.onePassSort(tuples, orderField);
+			// HelperFunctions.onePassSort(tuples, selectColumnList);
 			if (hasDistinct) {
 				HelperFunctions.removeDuplicateTuplesOnePass(tuples, selectColumnList);
 			}
+			if (orderField != null)
+				HelperFunctions.onePassSort(tuples, new ArrayList<>(Arrays.asList(orderField)));
 			return tuples;
 		} else {
 			// two pass for sort and duplicate removal
@@ -340,15 +386,24 @@ public class SelectExecutor {
 			}
 			List<Tuple> outputTuples = null;
 			if (hasDistinct && orderField != null) {
+				// Relation temp =
+				// HelperFunctions.createTableFromTuples(schemaManager, memory,
+				// HelperFunctions.twoPassSort(schemaManager, memory, table,
+				// selectColumnList), "temp");
 				List<Tuple> tuples = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table,
 						selectColumnList);
 				outputTuples = HelperFunctions.twoPassSort(schemaManager, memory,
 						HelperFunctions.createTableFromTuples(schemaManager, memory, tuples, "select_temp_sort"),
-						orderField);
+						new ArrayList<>(Arrays.asList(orderField)));
 			} else if (hasDistinct) {
+				// Relation temp =
+				// HelperFunctions.createTableFromTuples(schemaManager, memory,
+				// HelperFunctions.twoPassSort(schemaManager, memory, table,
+				// selectColumnList), "temp");
 				outputTuples = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table, selectColumnList);
 			} else if (orderField != null) {
-				outputTuples = HelperFunctions.twoPassSort(schemaManager, memory, table, orderField);
+				outputTuples = HelperFunctions.twoPassSort(schemaManager, memory, table,
+						new ArrayList<>(Arrays.asList(orderField)));
 			}
 			return outputTuples;
 		}

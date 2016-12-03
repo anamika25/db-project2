@@ -24,20 +24,6 @@ import storageManager.Tuple;
  */
 public class HelperFunctions {
 
-	/**
-	 * Sort tuples in place ordered by given column
-	 */
-	public static void onePassSort(List<Tuple> tuples, String orderByColumn) {
-		List<String> columnNames = tuples.get(0).getSchema().getFieldNames();
-		Collections.sort(tuples, new Comparator<Tuple>() {
-
-			@Override
-			public int compare(Tuple t1, Tuple t2) {
-				return compareTuple(t1, t2, columnNames, orderByColumn);
-			}
-		});
-	}
-
 	public static Relation executeCrossJoin(SchemaManager schemaManager, MainMemory memory,
 			ArrayList<String> tableNames) {
 
@@ -169,10 +155,14 @@ public class HelperFunctions {
 		}
 	}
 
-	/**
-	 * Function to remove duplicate tuples for given columns assuming tuples are
-	 * already sorted
-	 */
+	public static List<Tuple> removeDuplicatesOnePassWrapper(SchemaManager schemaManager, MainMemory memory,
+			Relation table, List<String> selectColumnList) {
+		table.getBlocks(0, 0, table.getNumOfBlocks());
+		List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
+		removeDuplicateTuplesOnePass(tuples, selectColumnList);
+		return tuples;
+	}
+
 	public static void removeDuplicateTuplesOnePass(List<Tuple> tuples, List<String> columns) {
 		Tuple tuple = tuples.get(0);
 		if (columns.get(0).equals("*")) {
@@ -193,11 +183,145 @@ public class HelperFunctions {
 		}
 	}
 
+	public static List<Tuple> removeDuplicatesTwoPass(SchemaManager schemaManager, MainMemory memory, Relation table,
+			List<String> selectColumnList) {
+		// Phase 1
+		int lastBlockIndex = twoPassPhaseOne(table, memory, selectColumnList);
+
+		// Phase 2
+		int temp = 0;
+		ArrayList<Integer> subListIndexes = new ArrayList<Integer>();
+		ArrayList<Tuple> output = new ArrayList<Tuple>();
+		while (temp < table.getNumOfBlocks()) {
+			subListIndexes.add(temp);
+			temp += memory.getMemorySize();
+		}
+
+		for (int i = 0; i < memory.getMemorySize(); i++) {
+			Block block = memory.getBlock(i);
+			block.clear();
+			memory.setBlock(i, block);
+		}
+
+		ArrayList<ArrayList<Tuple>> tuples = new ArrayList<ArrayList<Tuple>>();
+
+		// get tuples from first block of each sublist
+		for (int i = 0; i < subListIndexes.size(); i++) {
+			table.getBlock(subListIndexes.get(i), i);
+			Block block = memory.getBlock(i);
+			tuples.add(block.getTuples());
+		}
+
+		Tuple[] minTuples = new Tuple[subListIndexes.size()];
+		int[] blocksReadFromSublist = new int[subListIndexes.size()];
+		Arrays.fill(blocksReadFromSublist, 1);
+		Tuple comparator = null;
+		for (int i = 0; i < table.getNumOfTuples(); i++) {
+			for (int j = 0; j < subListIndexes.size(); j++) {
+				if (tuples.get(j).isEmpty()) {
+					if ((j < subListIndexes.size() - 1 && blocksReadFromSublist[j] < memory.getMemorySize())
+							|| (j == subListIndexes.size() - 1 && blocksReadFromSublist[j] < lastBlockIndex)) {
+						table.getBlock(subListIndexes.get(j) + blocksReadFromSublist[j], j);
+						Block block = memory.getBlock(j);
+						tuples.get(j).addAll(block.getTuples());
+						blocksReadFromSublist[j]++;
+					}
+				}
+				if (!tuples.get(j).isEmpty())
+					minTuples[j] = tuples.get(j).get(0);
+				else
+					minTuples[j] = null;
+			}
+
+			ArrayList<Tuple> minTuplesList = new ArrayList<Tuple>(Arrays.asList(minTuples));
+			Tuple minVal = Collections.min(minTuplesList, new Comparator<Tuple>() {
+				public int compare(Tuple t1, Tuple t2) {
+					int[] result = new int[selectColumnList.size()];
+					if (t1 == null)
+						return 1;
+					if (t2 == null)
+						return -1;
+					for (int i = 0; i < selectColumnList.size(); i++) {
+						String v1 = t1.getField(selectColumnList.get(i)).toString();
+						String v2 = t2.getField(selectColumnList.get(i)).toString();
+						if (isInteger(v1) && isInteger(v2)) {
+							result[i] = Integer.parseInt(v1) - Integer.parseInt(v2);
+						} else
+							result[i] = v1.compareTo(v2);
+					}
+					for (int i = 0; i < selectColumnList.size(); i++) {
+						if (result[i] > 0)
+							return 1;
+						else if (result[i] < 0)
+							return -1;
+					}
+					return 0;
+				}
+			});
+			int resultIndex = minTuplesList.indexOf(minVal);
+			if (!isEqual(minVal, comparator, selectColumnList)) {
+				output.add(minVal);
+				comparator = minVal;
+			}
+			tuples.get(resultIndex).remove(0);
+		}
+
+		return output;
+	}
+
+	public static List<Tuple> onePassSortWrapper(SchemaManager schemaManager, MainMemory memory, Relation table,
+			List<String> orderByColumns) {
+		table.getBlocks(0, 0, table.getNumOfBlocks());
+		ArrayList<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
+		onePassSort(tuples, orderByColumns);
+		return tuples;
+	}
+
+	public static void onePassSort(ArrayList<Tuple> tuples, List<String> orderByColumns) {
+		// List<String> columnNames = tuples.get(0).getSchema().getFieldNames();
+		// Collections.sort(tuples, new Comparator<Tuple>() {
+		//
+		// @Override
+		// public int compare(Tuple t1, Tuple t2) {
+		// return compareTuple(t1, t2, columnNames, orderByColumn);
+		// }
+		// });
+		if (orderByColumns == null || (orderByColumns.size() == 1 && orderByColumns.get(0).equals("*")))
+			orderByColumns = tuples.get(0).getSchema().getFieldNames();
+
+		final List<String> columnsForSort = orderByColumns;
+
+		Collections.sort(tuples, new Comparator<Tuple>() {
+			public int compare(Tuple t1, Tuple t2) {
+				if (t1 == null)
+					return 1;
+				if (t2 == null)
+					return -1;
+				int[] result = new int[columnsForSort.size()];
+				for (int i = 0; i < columnsForSort.size(); i++) {
+					String v1 = t1.getField(columnsForSort.get(i)).toString();
+					String v2 = t2.getField(columnsForSort.get(i)).toString();
+					if (isInteger(v1) && isInteger(v2)) {
+						result[i] = Integer.parseInt(v1) - Integer.parseInt(v2);
+					} else
+						result[i] = v1.compareTo(v2);
+				}
+				for (int i = 0; i < columnsForSort.size(); i++) {
+					if (result[i] > 0)
+						return 1;
+					else if (result[i] < 0)
+						return -1;
+				}
+				return 0;
+			}
+		});
+	}
+
 	public static List<Tuple> twoPassSort(SchemaManager schemaManager, MainMemory memory, Relation table,
-			String orderField) {
+			List<String> orderFields) {
 
 		// Phase 1
-		int lastBlockIndex = twoPassPhaseOne(table, memory, orderField);
+		int lastBlockIndex = twoPassPhaseOne(table, memory, orderFields);
 
 		// Phase 2
 		int temp = 0;
@@ -243,18 +367,27 @@ public class HelperFunctions {
 
 			ArrayList<Tuple> minTuplesList = new ArrayList<Tuple>(Arrays.asList(minTuples));
 			Tuple minTuple = Collections.min(minTuplesList, new Comparator<Tuple>() {
-
 				public int compare(Tuple t1, Tuple t2) {
+					int[] result = new int[orderFields.size()];
 					if (t1 == null)
 						return 1;
 					if (t2 == null)
 						return -1;
-					String val1 = t1.getField(orderField).toString();
-					String val2 = t2.getField(orderField).toString();
-					if (isInteger(val1) && isInteger(val2)) {
-						return Integer.compare(Integer.parseInt(val1), Integer.parseInt(val2));
-					} else
-						return val1.compareTo(val2);
+					for (int f = 0; f < orderFields.size(); f++) {
+						String v1 = t1.getField(orderFields.get(f)).toString();
+						String v2 = t2.getField(orderFields.get(f)).toString();
+						if (isInteger(v1) && isInteger(v2)) {
+							result[f] = Integer.parseInt(v1) - Integer.parseInt(v2);
+						} else
+							result[f] = v1.compareTo(v2);
+					}
+					for (int f = 0; f < orderFields.size(); f++) {
+						if (result[f] > 0)
+							return 1;
+						else if (result[f] < 0)
+							return -1;
+					}
+					return 0;
 				}
 			});
 
@@ -266,7 +399,7 @@ public class HelperFunctions {
 		return output;
 	}
 
-	private static int twoPassPhaseOne(Relation table, MainMemory memory, String orderField) {
+	private static int twoPassPhaseOne(Relation table, MainMemory memory, List<String> orderByFields) {
 		int blocksToRead = 0, sortedBlocks = 0;
 		while (sortedBlocks < table.getNumOfBlocks()) {
 			if (table.getNumOfBlocks() - sortedBlocks > memory.getMemorySize())
@@ -276,98 +409,13 @@ public class HelperFunctions {
 
 			table.getBlocks(sortedBlocks, 0, blocksToRead);
 			ArrayList<Tuple> tuples = memory.getTuples(0, blocksToRead);
-			onePassSort(tuples, orderField);
+
+			onePassSort(tuples, orderByFields);
 			memory.setTuples(0, tuples);
 			table.setBlocks(sortedBlocks, 0, blocksToRead);
 			sortedBlocks += blocksToRead;
 		}
 		return blocksToRead;
-	}
-
-	public static List<Tuple> removeDuplicatesTwoPass(SchemaManager schemaManager, MainMemory memory, Relation table,
-			List<String> selectColumnList) {
-		// Phase 1
-		int lastBlockIndex = twoPassPhaseOne(table, memory, null);
-
-		// Phase 2
-		int temp = 0;
-		ArrayList<Integer> subListIndexes = new ArrayList<Integer>();
-		ArrayList<Tuple> output = new ArrayList<Tuple>();
-		while (temp < table.getNumOfBlocks()) {
-			subListIndexes.add(temp);
-			temp += memory.getMemorySize();
-		}
-
-		for (int i = 0; i < memory.getMemorySize(); i++) {
-			Block block = memory.getBlock(i);
-			block.clear();
-			memory.setBlock(i, block);
-		}
-
-		ArrayList<ArrayList<Tuple>> tuples = new ArrayList<ArrayList<Tuple>>();
-
-		// get tuples from first block of each sublist
-		for (int i = 0; i < subListIndexes.size(); i++) {
-			table.getBlock(subListIndexes.get(i), i);
-			Block block = memory.getBlock(i);
-			tuples.add(block.getTuples());
-		}
-
-		Tuple[] minTuples = new Tuple[subListIndexes.size()];
-		int[] blocksReadFromSublist = new int[subListIndexes.size()];
-		Arrays.fill(blocksReadFromSublist, 1);
-		for (int i = 0; i < table.getNumOfTuples(); i++) {
-			for (int j = 0; j < subListIndexes.size(); j++) {
-				if (tuples.get(j).isEmpty()) {
-					if ((j < subListIndexes.size() - 1 && blocksReadFromSublist[j] < memory.getMemorySize())
-							|| (j == subListIndexes.size() - 1 && blocksReadFromSublist[j] < lastBlockIndex)) {
-						table.getBlock(subListIndexes.get(j) + blocksReadFromSublist[j], j);
-						Block block = memory.getBlock(j);
-						tuples.get(j).addAll(block.getTuples());
-						blocksReadFromSublist[j]++;
-					}
-				}
-				if (!tuples.get(j).isEmpty())
-					minTuples[j] = tuples.get(j).get(0);
-				else
-					minTuples[j] = null;
-			}
-
-			ArrayList<Tuple> minTuplesList = new ArrayList<Tuple>(Arrays.asList(minTuples));
-			Tuple minVal = Collections.min(minTuplesList, new Comparator<Tuple>() {
-				public int compare(Tuple t1, Tuple t2) {
-					int[] result = new int[selectColumnList.size()];
-					if (t1 == null)
-						return 1;
-					if (t2 == null)
-						return -1;
-					for (int i = 0; i < selectColumnList.size(); i++) {
-						String v1 = t1.getField(selectColumnList.get(i)).toString();
-						String v2 = t2.getField(selectColumnList.get(i)).toString();
-						if (isInteger(v1) && isInteger(v2)) {
-							result[i] = Integer.parseInt(v1) - Integer.parseInt(v2);
-						} else
-							result[i] = v1.compareTo(v2);
-					}
-					for (int i = 0; i < selectColumnList.size(); i++) {
-						if (result[i] > 0)
-							return 1;
-						else if (result[i] < 0)
-							return -1;
-					}
-					return 0;
-				}
-			});
-			Tuple comparator = null;
-			int resultIndex = minTuplesList.indexOf(minVal);
-			if (!isEqual(minVal, comparator, selectColumnList)) {
-				output.add(minVal);
-				comparator = minVal;
-			}
-			tuples.get(resultIndex).remove(0);
-		}
-
-		return output;
 	}
 
 	public static List<Tuple> naturalJoin(SchemaManager schemaManager, MainMemory memory, String table1, String table2,
@@ -446,8 +494,8 @@ public class HelperFunctions {
 		Relation tempTable = schemaManager.createRelation(tempTableName, joinedSchema);
 
 		// Phase 1
-		int lastBlock1 = twoPassPhaseOne(table1, memory, column);
-		int lastBlock2 = twoPassPhaseOne(table2, memory, column);
+		int lastBlock1 = twoPassPhaseOne(table1, memory, new ArrayList<>(Arrays.asList(column)));
+		int lastBlock2 = twoPassPhaseOne(table2, memory, new ArrayList<>(Arrays.asList(column)));
 
 		// Phase 2
 		int temp = 0;
@@ -792,22 +840,6 @@ public class HelperFunctions {
 
 		return output;
 
-	}
-
-	public static List<Tuple> removeDuplicatesOnePassWrapper(SchemaManager schemaManager, MainMemory memory,
-			Relation table, List<String> selectColumnList) {
-		table.getBlocks(0, 0, table.getNumOfBlocks());
-		List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
-		removeDuplicateTuplesOnePass(tuples, selectColumnList);
-		return tuples;
-	}
-
-	public static List<Tuple> onePassSortWrapper(SchemaManager schemaManager, MainMemory memory, Relation table,
-			String orderByColumn) {
-		table.getBlocks(0, 0, table.getNumOfBlocks());
-		List<Tuple> tuples = memory.getTuples(0, table.getNumOfBlocks());
-		onePassSort(tuples, orderByColumn);
-		return tuples;
 	}
 
 	public static Relation createTableFromTuples(SchemaManager schemaManager, MainMemory memory, List<Tuple> tuples,

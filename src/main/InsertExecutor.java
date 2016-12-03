@@ -104,10 +104,10 @@ public class InsertExecutor {
 			schemaManager.deleteRelation("from_select");
 
 		Relation relation = schemaManager.createRelation("from_select", schema);
-		Tuple tuple = relation.createTuple();
 		ArrayList<Tuple> output = new ArrayList<>();
 
 		for (Tuple t : tuples) {
+			Tuple tuple = relation.createTuple();
 			for (int j = 0; j < fields.size(); j++) {
 				if (t.getField(fields.get(j)).type == FieldType.INT)
 					tuple.setField(j, Integer.parseInt(t.getField(fields.get(j)).toString()));

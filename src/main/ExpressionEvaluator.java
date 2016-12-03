@@ -11,12 +11,12 @@ public class ExpressionEvaluator {
 
 	/** Function to evaluate boolean operator */
 	public static boolean evaluateLogicalOperator(StatementNode statement, Tuple tuple) {
+		if (statement.getType().equals(Constants.WHERE))
+			return evaluateLogicalOperator(statement.getFirstChild(), tuple);
+
 		StatementNode firstChild = statement.getFirstChild();
 		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
-		// If we are at a node one level up
-		case Constants.WHERE:
-			return evaluateLogicalOperator(firstChild, tuple);
 
 		case Constants.OR:
 			return evaluateLogicalOperator(firstChild, tuple) || evaluateLogicalOperator(secondChild, tuple);
@@ -44,26 +44,28 @@ public class ExpressionEvaluator {
 	}
 
 	public static int evaluateArithmeticOperator(StatementNode statement, Tuple tuple) {
-		StatementNode firstChild = statement.getFirstChild();
-		StatementNode secondChild = statement.getBranches().get(1);
 		switch (statement.getType()) {
 		case Constants.COLUMN_NAME:
-			return tuple.getField(firstChild.getType()).integer;
+			return tuple.getField(statement.getFirstChild().getType()).integer;
 
 		case Constants.INT:
-			return Integer.parseInt(firstChild.getType());
+			return Integer.parseInt(statement.getFirstChild().getType());
 
 		case Constants.ADDITION:
-			return evaluateArithmeticOperator(firstChild, tuple) + evaluateArithmeticOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
+					+ evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
 
 		case Constants.SUBTRACTION:
-			return evaluateArithmeticOperator(firstChild, tuple) - evaluateArithmeticOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
+					- evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
 
 		case Constants.MULTIPLICATION:
-			return evaluateArithmeticOperator(firstChild, tuple) * evaluateArithmeticOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
+					* evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
 
 		case Constants.DIVISION:
-			return evaluateArithmeticOperator(firstChild, tuple) / evaluateArithmeticOperator(secondChild, tuple);
+			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
+					/ evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
 
 		default:
 			System.out.println("Wrong type for comparison operator. Exiting!!!");
@@ -98,18 +100,18 @@ public class ExpressionEvaluator {
 			String columnName = secondOperand.getFirstChild().getType();
 			FieldType type = tuple.getSchema().getFieldType(columnName);
 			if (type == FieldType.INT) {
-				firstType = Constants.INT;
-				firstValue = tuple.getField(columnName).integer;
+				secondType = Constants.INT;
+				secondValue = tuple.getField(columnName).integer;
 			} else {
-				firstType = Constants.STRING;
-				firstValue = tuple.getField(columnName).str;
+				secondType = Constants.STRING;
+				secondValue = tuple.getField(columnName).str;
 			}
 		} else if (secondOperand.getType().equals(Constants.STRING)) {
-			firstType = Constants.STRING;
-			firstValue = secondOperand.getFirstChild().getType();
+			secondType = Constants.STRING;
+			secondValue = secondOperand.getFirstChild().getType();
 		} else if (secondOperand.getType().equals(Constants.INT)) {
-			firstType = Constants.INT;
-			firstValue = Integer.parseInt(secondOperand.getFirstChild().getType());
+			secondType = Constants.INT;
+			secondValue = Integer.parseInt(secondOperand.getFirstChild().getType());
 		}
 
 		if (!firstType.equals(secondType))
