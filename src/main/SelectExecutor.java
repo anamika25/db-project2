@@ -6,8 +6,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import parser.Parser;
+import parser.ParserException;
 import parser.StatementNode;
 import storageManager.Block;
 import storageManager.MainMemory;
@@ -21,7 +24,7 @@ import storageManager.Tuple;
  */
 public class SelectExecutor {
 
-	public List<Tuple> execute(ExecutionParameter parameter) {
+	public List<Tuple> execute(ExecutionParameter parameter) throws ParserException {
 		StatementNode columnsNode = null, fromNode = null, orderByNode = null, whereNode = null;
 
 		// find different parts of select statement
@@ -85,10 +88,6 @@ public class SelectExecutor {
 				}
 
 				if (hasDistinct) {
-					// sort by distinct columns
-					// HelperFunctions.onePassSort(matchedTuples,
-					// selectColumnList);
-					// remove duplicate
 					HelperFunctions.removeDuplicateTuplesOnePass(matchedTuples, selectColumnList);
 				}
 				if (orderByNode != null) {
@@ -113,110 +112,227 @@ public class SelectExecutor {
 				return outputTuples;
 			}
 		} else {
-			// TODO Multiple tables
-			if (whereNode != null && whereNode.getFirstChild().getType().equals(Constants.EQUAL)) {
-				StatementNode equalityNode = whereNode.getFirstChild();
-				StatementNode firstOperand = equalityNode.getFirstChild();
-				StatementNode secondOperand = equalityNode.getBranches().get(1);
-				if (!firstOperand.getType().equals(Constants.COLUMN_NAME)
-						|| !secondOperand.getType().equals(Constants.COLUMN_NAME)) {
-					System.out.println("Wring parse tree for where condition. Exiting!!!");
-					System.exit(0);
-				}
-				String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
-				String column1 = firstOperand.getFirstChild().getType().split("\\.")[1];
-				String table2 = secondOperand.getFirstChild().getType().split("\\.")[0];
-				String column2 = secondOperand.getFirstChild().getType().split("\\.")[1];
+			// Multiple tables
+			if (whereNode != null) {
+				if (whereNode.getFirstChild().getType().equals(Constants.EQUAL)) {
+					System.out.println("Natural join");
+					StatementNode equalityNode = whereNode.getFirstChild();
+					StatementNode firstOperand = equalityNode.getFirstChild();
+					StatementNode secondOperand = equalityNode.getBranches().get(1);
+					if (!firstOperand.getType().equals(Constants.COLUMN_NAME)
+							|| !secondOperand.getType().equals(Constants.COLUMN_NAME)) {
+						System.out.println("Wring parse tree for where condition. Exiting!!!");
+						System.exit(0);
+					}
+					String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
+					String column1 = firstOperand.getFirstChild().getType().split("\\.")[1];
+					String table2 = secondOperand.getFirstChild().getType().split("\\.")[0];
+					String column2 = secondOperand.getFirstChild().getType().split("\\.")[1];
 
-				// if natural join can be applied
-				if (column1.equals(column2)) {
-					List<Tuple> naturalJoinTuples = HelperFunctions.naturalJoin(schemaManager, memory, table1, table2,
-							column1);
-					Relation naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory,
-							naturalJoinTuples, "natural_join_temp");
+					// if natural join can be applied
+					if (column1.equals(column2)) {
+						List<Tuple> naturalJoinTuples = HelperFunctions.naturalJoin(schemaManager, memory, table1,
+								table2, column1);
+						Relation naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory,
+								naturalJoinTuples, "natural_join_temp");
 
-					if (!hasDistinct && orderByNode == null) {
-						List<Tuple> tuples = HelperFunctions.filter(schemaManager, memory, naturalJoinTable, whereNode,
-								selectColumnList);
-						return tuples;
-					}
-					List<Tuple> newTuples = HelperFunctions.filter(schemaManager, memory, naturalJoinTable, whereNode,
-							selectColumnList);
-					Relation r1 = HelperFunctions.createTableFromTuples(schemaManager, memory, newTuples,
-							"natural_join_temp_1");
-					if (hasDistinct && orderByNode == null) {
-						if (selectColumnList.get(0).equals("*")) {
-							selectColumnList = r1.getSchema().getFieldNames();
+						if (!hasDistinct && orderByNode == null) {
+							List<Tuple> tuples = HelperFunctions.filter(schemaManager, memory, naturalJoinTable,
+									whereNode, selectColumnList);
+							return tuples;
 						}
-						List<Tuple> newTuples1 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize()) {
-							// Relation temp =
-							// HelperFunctions.createTableFromTuples(schemaManager,
-							// memory,
-							// HelperFunctions.onePassSortWrapper(schemaManager,
-							// memory, r1, selectColumnList),
-							// "temp");
-							newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
-									selectColumnList);
-						} else {
-							// Relation temp =
-							// HelperFunctions.createTableFromTuples(schemaManager,
-							// memory,
-							// HelperFunctions.twoPassSort(schemaManager,
-							// memory, r1, selectColumnList), "temp");
-							newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
-									selectColumnList);
+						List<Tuple> newTuples = HelperFunctions.filter(schemaManager, memory, naturalJoinTable,
+								whereNode, selectColumnList);
+						Relation r1 = HelperFunctions.createTableFromTuples(schemaManager, memory, newTuples,
+								"natural_join_temp_1");
+						if (hasDistinct && orderByNode == null) {
+							if (selectColumnList.get(0).equals("*")) {
+								selectColumnList = r1.getSchema().getFieldNames();
+							}
+							List<Tuple> newTuples1 = null;
+							if (r1.getNumOfBlocks() < memory.getMemorySize()) {
+								newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
+										selectColumnList);
+							} else {
+								newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
+										selectColumnList);
+							}
+							return newTuples1;
 						}
-						return newTuples1;
-					}
-					if (!hasDistinct && orderByNode != null) {
-						List<Tuple> newTuples1 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize())
-							newTuples1 = HelperFunctions.onePassSortWrapper(schemaManager, memory, r1, new ArrayList<>(
-									Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
-						else
-							newTuples1 = HelperFunctions.twoPassSort(schemaManager, memory, r1, new ArrayList<>(
-									Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
-						return newTuples1;
-					}
-					if (hasDistinct && orderByNode != null) {
-						if (selectColumnList.get(0).equals("*")) {
-							selectColumnList = r1.getSchema().getFieldNames();
+						if (!hasDistinct && orderByNode != null) {
+							List<Tuple> newTuples1 = null;
+							if (r1.getNumOfBlocks() < memory.getMemorySize())
+								newTuples1 = HelperFunctions.onePassSortWrapper(schemaManager, memory, r1,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							else
+								newTuples1 = HelperFunctions.twoPassSort(schemaManager, memory, r1, new ArrayList<>(
+										Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							return newTuples1;
 						}
-						List<Tuple> newTuples1 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize()) {
-							// Relation temp =
-							// HelperFunctions.createTableFromTuples(schemaManager,
-							// memory,
-							// HelperFunctions.onePassSortWrapper(schemaManager,
-							// memory, r1, selectColumnList),
-							// "temp");
-							newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
-									selectColumnList);
-						} else {
-							// Relation temp =
-							// HelperFunctions.createTableFromTuples(schemaManager,
-							// memory,
-							// HelperFunctions.twoPassSort(schemaManager,
-							// memory, r1, selectColumnList), "temp");
-							newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
-									selectColumnList);
-						}
-						Relation tempRelation = HelperFunctions.createTableFromTuples(schemaManager, memory, newTuples1,
-								r1.getRelationName() + "_distinct");
+						if (hasDistinct && orderByNode != null) {
+							if (selectColumnList.get(0).equals("*")) {
+								selectColumnList = r1.getSchema().getFieldNames();
+							}
+							List<Tuple> newTuples1 = null;
+							if (r1.getNumOfBlocks() < memory.getMemorySize()) {
+								newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, r1,
+										selectColumnList);
+							} else {
+								newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, r1,
+										selectColumnList);
+							}
+							Relation tempRelation = HelperFunctions.createTableFromTuples(schemaManager, memory,
+									newTuples1, r1.getRelationName() + "_distinct");
 
-						List<Tuple> newTuples2 = null;
-						if (r1.getNumOfBlocks() < memory.getMemorySize())
-							newTuples2 = HelperFunctions.onePassSortWrapper(schemaManager, memory, tempRelation,
-									new ArrayList<>(
-											Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
-						else
-							newTuples2 = HelperFunctions.twoPassSort(schemaManager, memory, tempRelation,
-									new ArrayList<>(
-											Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
-						return newTuples2;
+							List<Tuple> newTuples2 = null;
+							if (r1.getNumOfBlocks() < memory.getMemorySize())
+								newTuples2 = HelperFunctions.onePassSortWrapper(schemaManager, memory, tempRelation,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							else
+								newTuples2 = HelperFunctions.twoPassSort(schemaManager, memory, tempRelation,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							return newTuples2;
+						}
+						return null;
 					}
-					return null;
+				} else {
+					Map<StatementNode, Boolean> map = new HashMap<>();
+					parseWhereConditions(whereNode.getFirstChild(), map);
+					List<String> newList = new ArrayList<>();
+					for (Entry<StatementNode, Boolean> entry : map.entrySet()) {
+						if (!entry.getValue()) {
+							StatementNode node = entry.getKey();
+							if (node.getBranches().get(1).getType().equals(Constants.INT)
+									|| node.getBranches().get(1).getType().equals(Constants.STRING)) {
+								String table = node.getFirstChild().getFirstChild().getType().split("\\.")[0];
+								String column = node.getFirstChild().getFirstChild().getType().split("\\.")[1];
+
+								String val = node.getBranches().get(1).getFirstChild().getType();
+								if (node.getBranches().get(1).getType().equals(Constants.STRING)) {
+									val = '"' + val + '"';
+								}
+								ExecutionParameter param = new ExecutionParameter(
+										Parser.startParse("SELECT * from " + table + " WHERE " + column + " "
+												+ node.getType() + " " + val),
+										schemaManager, memory, parameter.getDisk());
+								List<Tuple> pushSelectDownTuples = new SelectExecutor().execute(param);
+								HelperFunctions.createTableFromTuples(schemaManager, memory, pushSelectDownTuples,
+										"push_select_down_temp#" + table);
+								newList.add("push_select_down_temp#" + table);
+								map.put(entry.getKey(), true);
+							} /*
+								 * else if
+								 * (whereNode.getFirstChild().getType().equals(
+								 * Constants.EQUAL)) { // TODO 1 natural join
+								 * condition } else { // TODO execute where }
+								 */
+
+						}
+					}
+					Relation naturalJoinTable = null;
+					for (Entry<StatementNode, Boolean> entry : map.entrySet()) {
+						if (!entry.getValue() && entry.getKey().getType().equals(Constants.EQUAL)) {
+							StatementNode equalityNode = entry.getKey();
+							System.out.println("Natural join");
+							StatementNode firstOperand = equalityNode.getFirstChild();
+							StatementNode secondOperand = equalityNode.getBranches().get(1);
+							String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
+							if (newList.contains("push_select_down_temp#" + table1))
+								table1 = "push_select_down_temp#" + table1;
+							String column1 = firstOperand.getFirstChild().getType().split("\\.")[1];
+							String table2 = secondOperand.getFirstChild().getType().split("\\.")[0];
+							if (newList.contains("push_select_down_temp#" + table2))
+								table2 = "push_select_down_temp#" + table2;
+							String column2 = secondOperand.getFirstChild().getType().split("\\.")[1];
+
+							// if natural join can be applied
+							if (column1.equals(column2)) {
+								List<Tuple> naturalJoinTuples = HelperFunctions.naturalJoin(schemaManager, memory,
+										table1, table2, column1);
+								naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory,
+										naturalJoinTuples, "natural_join_temp");
+								map.put(entry.getKey(), true);
+							}
+						}
+					}
+					if (naturalJoinTable != null) {
+						for (Entry<StatementNode, Boolean> entry : map.entrySet()) {
+							if (!entry.getValue()) {
+								List<Tuple> tuples = HelperFunctions.filter(schemaManager, memory, naturalJoinTable,
+										entry.getKey(), selectColumnList);
+								naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory, tuples,
+										naturalJoinTable.getRelationName());
+								map.put(entry.getKey(), true);
+							}
+						}
+						if (!hasDistinct && orderByNode == null) {
+							List<Tuple> tuples = new ArrayList<>();
+							for (int i = 0; i < naturalJoinTable.getNumOfBlocks(); i++) {
+								naturalJoinTable.getBlock(i, 0);
+								Block block = memory.getBlock(0);
+								for (Tuple t : block.getTuples()) {
+									tuples.add(t);
+								}
+							}
+							return tuples;
+						}
+						if (hasDistinct && orderByNode == null) {
+							if (selectColumnList.get(0).equals("*")) {
+								selectColumnList = naturalJoinTable.getSchema().getFieldNames();
+							}
+							List<Tuple> newTuples1 = null;
+							if (naturalJoinTable.getNumOfBlocks() < memory.getMemorySize()) {
+								newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory,
+										naturalJoinTable, selectColumnList);
+							} else {
+								newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory,
+										naturalJoinTable, selectColumnList);
+							}
+							return newTuples1;
+						}
+						if (!hasDistinct && orderByNode != null) {
+							List<Tuple> newTuples1 = null;
+							if (naturalJoinTable.getNumOfBlocks() < memory.getMemorySize())
+								newTuples1 = HelperFunctions.onePassSortWrapper(schemaManager, memory, naturalJoinTable,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							else
+								newTuples1 = HelperFunctions.twoPassSort(schemaManager, memory, naturalJoinTable,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							return newTuples1;
+						}
+						if (hasDistinct && orderByNode != null) {
+							if (selectColumnList.get(0).equals("*")) {
+								selectColumnList = naturalJoinTable.getSchema().getFieldNames();
+							}
+							List<Tuple> newTuples1 = null;
+							if (naturalJoinTable.getNumOfBlocks() < memory.getMemorySize()) {
+								newTuples1 = HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory,
+										naturalJoinTable, selectColumnList);
+							} else {
+								newTuples1 = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory,
+										naturalJoinTable, selectColumnList);
+							}
+							Relation tempRelation = HelperFunctions.createTableFromTuples(schemaManager, memory,
+									newTuples1, naturalJoinTable.getRelationName() + "_distinct");
+
+							List<Tuple> newTuples2 = null;
+							if (naturalJoinTable.getNumOfBlocks() < memory.getMemorySize())
+								newTuples2 = HelperFunctions.onePassSortWrapper(schemaManager, memory, tempRelation,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							else
+								newTuples2 = HelperFunctions.twoPassSort(schemaManager, memory, tempRelation,
+										new ArrayList<>(
+												Arrays.asList(orderByNode.getFirstChild().getFirstChild().getType())));
+							return newTuples2;
+						}
+						return null;
+					}
 				}
 			}
 
@@ -262,29 +378,13 @@ public class SelectExecutor {
 				}
 				if (orderByNode == null) {
 					if (relationAfterCross.getNumOfBlocks() < memory.getMemorySize()) {
-						// Relation temp =
-						// HelperFunctions.createTableFromTuples(schemaManager,
-						// memory,
-						// HelperFunctions.onePassSortWrapper(schemaManager,
-						// memory, relationAfterCross, fields),
-						// "temp");
 						return HelperFunctions.removeDuplicatesOnePassWrapper(schemaManager, memory, relationAfterCross,
 								fields);
 					} else {
-						// Relation temp =
-						// HelperFunctions.createTableFromTuples(schemaManager,
-						// memory,
-						// HelperFunctions.twoPassSort(schemaManager, memory,
-						// relationAfterCross, fields), "temp");
 						return HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, relationAfterCross,
 								fields);
 					}
 				} else {
-					// Relation temp =
-					// HelperFunctions.createTableFromTuples(schemaManager,
-					// memory,
-					// HelperFunctions.twoPassSort(schemaManager, memory,
-					// relationAfterCross, fields), "temp");
 					relationAfterCross = HelperFunctions.createTableFromTuples(schemaManager, memory,
 							HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, relationAfterCross, fields),
 							"cross_join_distinct");
@@ -307,6 +407,16 @@ public class SelectExecutor {
 			}
 		}
 		return null;
+	}
+
+	private void parseWhereConditions(StatementNode whereNodeChild, Map<StatementNode, Boolean> map) {
+		if (whereNodeChild.getType().equals(Constants.EQUAL) || whereNodeChild.getType().equals(Constants.GREATER_THAN)
+				|| whereNodeChild.getType().equals(Constants.LESS_THAN))
+			map.put(whereNodeChild, false);
+		else {
+			parseWhereConditions(whereNodeChild.getFirstChild(), map);
+			parseWhereConditions(whereNodeChild.getBranches().get(1), map);
+		}
 	}
 
 	private List<Tuple> simpleSelectQuery(MainMemory memory, Relation table, List<String> selectColumnList,

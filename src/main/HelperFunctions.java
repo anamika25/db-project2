@@ -683,17 +683,29 @@ public class HelperFunctions {
 		ArrayList<String> columnNames = new ArrayList<String>();
 		ArrayList<FieldType> columnTypes = new ArrayList<FieldType>();
 		for (String s : t1.getSchema().getFieldNames()) {
+			if (s.contains("#"))
+				s = s.split("#")[1];
 			if (s.contains("\\."))
 				columnNames.add(s);
-			else
-				columnNames.add(t1.getRelationName() + "." + s);
+			else {
+				if (t1.getRelationName().contains("#")) {
+					columnNames.add(t1.getRelationName().split("#")[1] + "." + s);
+				} else
+					columnNames.add(t1.getRelationName() + "." + s);
+			}
 
 		}
 		for (String s : t2.getSchema().getFieldNames()) {
+			if (s.contains("#"))
+				s = s.split("#")[1];
 			if (s.contains("\\."))
 				columnNames.add(s);
-			else
-				columnNames.add(t2.getRelationName() + "." + s);
+			else {
+				if (t2.getRelationName().contains("#")) {
+					columnNames.add(t2.getRelationName().split("#")[1] + "." + s);
+				} else
+					columnNames.add(t2.getRelationName() + "." + s);
+			}
 		}
 
 		columnTypes.addAll(t1.getSchema().getFieldTypes());

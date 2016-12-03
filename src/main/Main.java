@@ -39,6 +39,9 @@ public class Main {
 		disk = new Disk();
 		schemaManager = new SchemaManager(memory, disk);
 		executor = new AbstractExecutor();
+		long systemStartTime = System.currentTimeMillis();
+		double diskStartTime = disk.getDiskTimer();
+		long startDiskIO = disk.getDiskIOs();
 		try {
 			CommandLine cmd = parser.parse(options, args);
 			if (cmd.hasOption("s")) {
@@ -63,6 +66,10 @@ public class Main {
 			e.printStackTrace();
 			System.exit(0);
 		}
+		System.out.print(
+				"Overall Computer elapse time = " + (System.currentTimeMillis() - systemStartTime) + " ms" + "\n");
+		System.out.print("Overall Calculated elapse time = " + (disk.getDiskTimer() - diskStartTime) + " ms" + "\n");
+		System.out.println("Overall Calculated Disk I/Os = " + (disk.getDiskIOs() - startDiskIO) + "\n");
 
 	}
 

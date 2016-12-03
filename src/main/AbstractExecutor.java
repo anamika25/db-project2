@@ -3,6 +3,7 @@ package main;
 import java.util.ArrayList;
 import java.util.List;
 
+import parser.ParserException;
 import parser.StatementNode;
 import storageManager.Disk;
 import storageManager.FieldType;
@@ -15,7 +16,8 @@ import storageManager.Tuple;
  */
 public class AbstractExecutor {
 
-	public void execute(StatementNode statement, SchemaManager schemaManager, Disk disk, MainMemory memory) {
+	public void execute(StatementNode statement, SchemaManager schemaManager, Disk disk, MainMemory memory)
+			throws ParserException {
 		long startSystemTime = System.currentTimeMillis();
 		double startDiskTime = disk.getDiskTimer();
 		long startDiskIO = disk.getDiskIOs();
@@ -74,8 +76,11 @@ public class AbstractExecutor {
 
 	private void printHeader(Tuple tuple, List<String> fieldList) {
 		if (fieldList.get(0).equals("*")) {
-			for (String fieldNames : tuple.getSchema().getFieldNames()) {
-				System.out.print(fieldNames + "   ");
+			for (String fieldName : tuple.getSchema().getFieldNames()) {
+				if (fieldName.contains("#")) {
+					fieldName = fieldName.split("#")[1];
+				}
+				System.out.print(fieldName + "   ");
 			}
 			System.out.println();
 		} else {

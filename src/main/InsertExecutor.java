@@ -3,6 +3,7 @@ package main;
 import java.util.ArrayList;
 import java.util.List;
 
+import parser.ParserException;
 import parser.StatementNode;
 import storageManager.Block;
 import storageManager.FieldType;
@@ -17,7 +18,7 @@ import storageManager.Tuple;
  */
 public class InsertExecutor {
 
-	public void execute(ExecutionParameter parameter) {
+	public void execute(ExecutionParameter parameter) throws ParserException {
 		SchemaManager schemaManager = parameter.getSchemaManager();
 		MainMemory memory = parameter.getMemory();
 		assert schemaManager != null;
