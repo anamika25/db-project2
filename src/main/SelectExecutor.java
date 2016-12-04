@@ -233,10 +233,10 @@ public class SelectExecutor {
 						}
 					}
 					Relation naturalJoinTable = null;
+					Map<String, Boolean> naturalJoinDone = new HashMap<>();
 					for (Entry<StatementNode, Boolean> entry : map.entrySet()) {
 						if (!entry.getValue() && entry.getKey().getType().equals(Constants.EQUAL)) {
 							StatementNode equalityNode = entry.getKey();
-							System.out.println("Natural join");
 							StatementNode firstOperand = equalityNode.getFirstChild();
 							StatementNode secondOperand = equalityNode.getBranches().get(1);
 							String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
@@ -250,10 +250,19 @@ public class SelectExecutor {
 
 							// if natural join can be applied
 							if (column1.equals(column2)) {
+								if (naturalJoinDone.containsKey(table1) && naturalJoinDone.containsKey(table2))
+									break;
+								else if (naturalJoinDone.containsKey(table1))
+									table1 = naturalJoinTable.getRelationName();
+								else if (naturalJoinDone.containsKey(table2))
+									table2 = naturalJoinTable.getRelationName();
+								System.out.println("Natural join");
 								List<Tuple> naturalJoinTuples = HelperFunctions.naturalJoin(schemaManager, memory,
 										table1, table2, column1);
 								naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory,
-										naturalJoinTuples, "natural_join_temp");
+										naturalJoinTuples, table1 + "_join_" + table2);
+								naturalJoinDone.put(table1, true);
+								naturalJoinDone.put(table2, true);
 								map.put(entry.getKey(), true);
 							}
 						}

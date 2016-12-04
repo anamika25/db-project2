@@ -54,6 +54,7 @@ public class AbstractExecutor {
 			}
 
 			if (tuples != null && !tuples.isEmpty()) {
+				System.out.println("Rows returned: " + tuples.size());
 				printHeader(tuples.get(0), headers);
 				for (Tuple tuple : tuples) {
 					printTuple(tuple, columns);
