@@ -1,0 +1,7 @@
+SELECT course.sid, course.grade, course2.grade FROM course, course2 WHERE course.sid = course2.sid
+SELECT DISTINCT course.grade, course2.grade FROM course, course2 WHERE course.sid = course2.sid
+SELECT * FROM course, course2 WHERE course.sid = course2.sid ORDER BY course.exam
+SELECT * FROM course, course2 WHERE course.sid = course2.sid AND course.exam = 100 AND course2.exam = 100
+SELECT * FROM course, course2 WHERE course.sid = course2.sid AND course.exam > course2.exam
+SELECT * FROM course, course2 WHERE course.sid = course2.sid AND course.exam > course2.exam AND course.homework = 100
+SELECT DISTINCT course.grade, course2.grade FROM course, course2 WHERE course.sid = course2.sid AND course.grade = "A" AND course2.grade = "A" ORDER BY course.exam

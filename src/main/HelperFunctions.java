@@ -125,7 +125,7 @@ public class HelperFunctions {
 	}
 
 	private static int compareTuple(Tuple t1, Tuple t2, List<String> columnNames, String orderByColumn) {
-		// if order by given
+		// if Order By given
 		if (orderByColumn != null) {
 			int val = compareTupleAtColumn(t1, t2, orderByColumn);
 			// if not equal then return
@@ -278,14 +278,6 @@ public class HelperFunctions {
 	}
 
 	public static void onePassSort(ArrayList<Tuple> tuples, List<String> orderByColumns) {
-		// List<String> columnNames = tuples.get(0).getSchema().getFieldNames();
-		// Collections.sort(tuples, new Comparator<Tuple>() {
-		//
-		// @Override
-		// public int compare(Tuple t1, Tuple t2) {
-		// return compareTuple(t1, t2, columnNames, orderByColumn);
-		// }
-		// });
 		if (orderByColumns == null || (orderByColumns.size() == 1 && orderByColumns.get(0).equals("*")))
 			orderByColumns = tuples.get(0).getSchema().getFieldNames();
 
@@ -395,7 +387,6 @@ public class HelperFunctions {
 			tuples.get(resultIndex).remove(0);
 			output.add(minTuple);
 		}
-
 		return output;
 	}
 
@@ -431,7 +422,6 @@ public class HelperFunctions {
 		} else {
 			joinedTuples = naturalJoinTwoPass(schemaManager, memory, t1, t2, column);
 		}
-
 		return joinedTuples;
 	}
 
@@ -512,16 +502,7 @@ public class HelperFunctions {
 		}
 		final String firstColumn = column1;
 		final String secondColumn = column2;
-		// Phase 1
-		/*
-		 * int lastBlock1 = twoPassPhaseOne(table1, memory, new
-		 * ArrayList<>(Arrays.asList(firstColumn)));
-		 */
-		/*
-		 * int lastBlock2 = twoPassPhaseOne(table2, memory, new
-		 * ArrayList<>(Arrays.asList(secondColumn)));
-		 */
-
+		
 		List<Tuple> output = new ArrayList<Tuple>();
 		for (int i = 0; i < table1.getNumOfBlocks(); i++) {
 			table1.getBlock(i, 0);
@@ -546,203 +527,6 @@ public class HelperFunctions {
 		}
 		return output;
 
-		// Phase 2
-		// int temp = 0;
-		// List<Integer> subListIndexes1 = new ArrayList<Integer>();
-		// List<Integer> subListIndexes2 = new ArrayList<Integer>();
-		// while (temp < table1.getNumOfBlocks()) {
-		// subListIndexes1.add(temp);
-		// temp += memory.getMemorySize();
-		// }
-		//
-		// temp = 0;
-		// while (temp < table2.getNumOfBlocks()) {
-		// subListIndexes2.add(temp);
-		// temp += memory.getMemorySize();
-		// }
-		//
-		// for (int i = 0; i < memory.getMemorySize(); i++) {
-		// Block block = memory.getBlock(i);
-		// block.clear();
-		// }
-		// int[] blocksReadFromSublist1 = new int[subListIndexes1.size()];
-		// int[] blocksReadFromSublist2 = new int[subListIndexes2.size()];
-		// Arrays.fill(blocksReadFromSublist1, 1);
-		// Arrays.fill(blocksReadFromSublist2, 1);
-		//
-		// ArrayList<ArrayList<Tuple>> tuples1 = new
-		// ArrayList<ArrayList<Tuple>>();
-		// ArrayList<ArrayList<Tuple>> tuples2 = new
-		// ArrayList<ArrayList<Tuple>>();
-		// for (int i = 0; i < subListIndexes1.size(); i++) {
-		// table1.getBlock(subListIndexes1.get(i), i);
-		// Block block = memory.getBlock(i);
-		// tuples1.add(block.getTuples());
-		// }
-		// for (int i = 0; i < subListIndexes2.size(); i++) {
-		// table2.getBlock(subListIndexes2.get(i), i + subListIndexes1.size());
-		// Block block = memory.getBlock(i + subListIndexes1.size());
-		// tuples2.add(block.getTuples());
-		// }
-		//
-		// Tuple[] minTuple1 = new Tuple[subListIndexes1.size()];
-		// Tuple[] minTuple2 = new Tuple[subListIndexes2.size()];
-		//
-		// ArrayList<Tuple> output = new ArrayList<Tuple>();
-		// while (!isEmptyLists(tuples1) && !isEmptyLists(tuples2)) {
-		// for (int j = 0; j < subListIndexes1.size(); j++) {
-		// if (tuples1.get(j).isEmpty()) {
-		// if ((j < subListIndexes1.size() - 1 && blocksReadFromSublist1[j] <
-		// memory.getMemorySize())
-		// || (j == subListIndexes1.size() - 1 && blocksReadFromSublist1[j] <
-		// lastBlock1)) {
-		// table1.getBlock(subListIndexes1.get(j) + blocksReadFromSublist1[j],
-		// j);
-		// Block block = memory.getBlock(j);
-		// tuples1.get(j).addAll(block.getTuples());
-		// blocksReadFromSublist1[j]++;
-		// }
-		// }
-		// if (!tuples1.get(j).isEmpty())
-		// minTuple1[j] = tuples1.get(j).get(0);
-		// else
-		// minTuple1[j] = null;
-		// }
-		//
-		// for (int j = 0; j < subListIndexes2.size(); j++) {
-		// if (tuples2.get(j).isEmpty()) {
-		// if ((j < subListIndexes2.size() - 1 && blocksReadFromSublist2[j] <
-		// memory.getMemorySize())
-		// || (j == subListIndexes2.size() - 1 && blocksReadFromSublist2[j] <
-		// lastBlock2)) {
-		// table2.getBlock(subListIndexes2.get(j) + blocksReadFromSublist2[j], j
-		// + subListIndexes1.size());
-		// Block block = memory.getBlock(j + subListIndexes1.size());
-		// tuples2.get(j).addAll(block.getTuples());
-		// blocksReadFromSublist2[j]++;
-		// }
-		// }
-		// if (!tuples2.get(j).isEmpty())
-		// minTuple2[j] = tuples2.get(j).get(0);
-		// else
-		// minTuple2[j] = null;
-		// }
-		//
-		// // pick minimum from all sublists
-		// ArrayList<Tuple> minTuplesList1 = new
-		// ArrayList<>(Arrays.asList(minTuple1));
-		// ArrayList<Tuple> minTuplesList2 = new
-		// ArrayList<>(Arrays.asList(minTuple2));
-		// Tuple minVal1 = Collections.min(minTuplesList1, new
-		// Comparator<Tuple>() {
-		// public int compare(Tuple t1, Tuple t2) {
-		// if (t1 == null)
-		// return 1;
-		// if (t2 == null)
-		// return -1;
-		// String s1 = t1.getField(finalColumn).toString();
-		// String s2 = t2.getField(finalColumn).toString();
-		// if (isInteger(s1) && isInteger(s2)) {
-		// return (Integer.parseInt(s1) - Integer.parseInt(s2));
-		// } else {
-		// return s1.compareTo(s2);
-		// }
-		// }
-		// });
-		// Tuple minVal2 = Collections.min(minTuplesList2, new
-		// Comparator<Tuple>() {
-		// public int compare(Tuple t1, Tuple t2) {
-		// if (t1 == null)
-		// return 1;
-		// if (t2 == null)
-		// return -1;
-		// String s1 = t1.getField(secondColumn).toString();
-		// String s2 = t2.getField(secondColumn).toString();
-		// if (isInteger(s1) && isInteger(s2)) {
-		// return (Integer.parseInt(s1) - Integer.parseInt(s2));
-		// } else {
-		// return s1.compareTo(s2);
-		// }
-		// }
-		// });
-		//
-		// String min1 = null, min2 = null;
-		// if (minVal1 != null) {
-		// min1 = minVal1.getField(finalColumn).toString();
-		// }
-		// if (minVal2 != null) {
-		// min2 = minVal2.getField(secondColumn).toString();
-		// }
-		//
-		// if (min1 != null && min2 != null && min1.equals(min2)) {
-		// // Get all the minimum tuples in both collections, cross join
-		// // and output
-		// int count1 = getMinValueCount(tuples1, finalColumn, min1);
-		// int count2 = getMinValueCount(tuples2, secondColumn, min2);
-		//
-		// ArrayList<Tuple> minTuples1 = getMinValueTuples(tuples1, finalColumn,
-		// min1);
-		// ArrayList<Tuple> minTuples2 = getMinValueTuples(tuples2,
-		// secondColumn, min2);
-		//
-		// for (int i = 0; i < count1; i++) {
-		// for (int j = 0; j < count2; j++)
-		// output.add(mergeTuple(schemaManager, tempTable, minTuples1.get(i),
-		// minTuples2.get(j)));
-		// }
-		//
-		// /*
-		// * TODO Handle the case that when the tuple indexed by one field
-		// * of a relation cannot be held by the memory one time, or to
-		// * say, any block is full with tuples with same field, we have
-		// * to keep the other relation in case for more joins
-		// */
-		//
-		// Boolean flag1 = false, flag2 = false;
-		// for (int i = 0; i < subListIndexes1.size(); i++) {
-		// Block tmpblk = memory.getBlock(i);
-		// if (getBlockMinCount(tuples1.get(i), finalColumn, min1) ==
-		// tmpblk.getNumTuples()) {
-		// flag1 = true;
-		// break;
-		// }
-		// }
-		// for (int i = 0; i < subListIndexes2.size(); i++) {
-		// Block tmpblk = memory.getBlock(i + subListIndexes1.size());
-		// if (getBlockMinCount(tuples2.get(i), secondColumn, min1) ==
-		// tmpblk.getNumTuples()) {
-		// flag2 = true;
-		// break;
-		// }
-		// }
-		//
-		// if (flag1 && !flag2)
-		// tuples1 = deleteMin(tuples1, finalColumn, min1);
-		//
-		// if (!flag1 && flag2)
-		// tuples2 = deleteMin(tuples2, secondColumn, min2);
-		//
-		// // Normal process
-		// if ((flag1 && flag2) || (!flag1 && !flag2)) {
-		// tuples1 = deleteMin(tuples1, finalColumn, min1);
-		// tuples2 = deleteMin(tuples2, secondColumn, min2);
-		// }
-		//
-		// } else if (min1 != null && min2 != null) {
-		// if (isInteger(min1) && isInteger(min2)) {
-		// if ((Integer.parseInt(min1) - Integer.parseInt(min2)) < 0)
-		// tuples1 = deleteMin(tuples1, finalColumn, min1);
-		// else
-		// tuples2 = deleteMin(tuples2, secondColumn, min2);
-		// } else {
-		// if (min1.compareTo(min2) < 0)
-		// tuples1 = deleteMin(tuples1, finalColumn, min1);
-		// else
-		// tuples2 = deleteMin(tuples2, secondColumn, min2);
-		// }
-		// }
-		// }
-		// return output;
 	}
 
 	private static Schema combineSchema(SchemaManager schemaManager, Relation t1, Relation t2) {
@@ -917,7 +701,6 @@ public class HelperFunctions {
 			}
 			output.add(tuple);
 		}
-
 		return output;
 
 	}

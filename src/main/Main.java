@@ -66,8 +66,7 @@ public class Main {
 			e.printStackTrace();
 			System.exit(0);
 		}
-		System.out.print(
-				"Overall Computer elapse time = " + (System.currentTimeMillis() - systemStartTime) + " ms" + "\n");
+		System.out.print("Overall Computer elapse time = " + (System.currentTimeMillis() - systemStartTime) + " ms" + "\n");
 		System.out.print("Overall Calculated elapse time = " + (disk.getDiskTimer() - diskStartTime) + " ms" + "\n");
 		System.out.println("Overall Calculated Disk I/Os = " + (disk.getDiskIOs() - startDiskIO) + "\n");
 

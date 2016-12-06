@@ -121,7 +121,7 @@ public class SelectExecutor {
 					StatementNode secondOperand = equalityNode.getBranches().get(1);
 					if (!firstOperand.getType().equals(Constants.COLUMN_NAME)
 							|| !secondOperand.getType().equals(Constants.COLUMN_NAME)) {
-						System.out.println("Wring parse tree for where condition. Exiting!!!");
+						System.out.println("Wrong parse tree for where condition. Exiting!!!");
 						System.exit(0);
 					}
 					String table1 = firstOperand.getFirstChild().getType().split("\\.")[0];
@@ -543,8 +543,6 @@ public class SelectExecutor {
 					memory.getMemorySize());
 			HelperFunctions.travesal(optimalJoinTables, 0);
 			return crossJoinExecutor(optimalJoinTables, memory, schemaManager);
-
-			// TODO
 		}
 	}
 

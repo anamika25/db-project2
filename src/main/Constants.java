@@ -30,7 +30,7 @@ public final class Constants {
 	public static final String SUBTRACTION = "-";
 	public static final String MULTIPLICATION = "*";
 
-	// Datatype
+	// Data type
 	public static final String INT = "INT";
 	public static final String STRING = "STRING";
 

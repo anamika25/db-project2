@@ -72,7 +72,6 @@ public class AbstractExecutor {
 		System.out.print("Computer elapse time = " + (System.currentTimeMillis() - startSystemTime) + " ms" + "\n");
 		System.out.print("Calculated elapse time = " + (disk.getDiskTimer() - startDiskTime) + " ms" + "\n");
 		System.out.println("Calculated Disk I/Os = " + (disk.getDiskIOs() - startDiskIO) + "\n");
-
 	}
 
 	private void printHeader(Tuple tuple, List<String> fieldList) {
