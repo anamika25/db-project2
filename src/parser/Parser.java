@@ -21,14 +21,12 @@ public class Parser {
 		operatorPriorityMap = new HashMap<String, Integer>();
 		operatorPriorityMap.put(Constants.OR, 0);
 		operatorPriorityMap.put(Constants.AND, 1);
-		operatorPriorityMap.put(Constants.NOT, 2);
-		operatorPriorityMap.put(Constants.LESS_THAN, 3);
-		operatorPriorityMap.put(Constants.GREATER_THAN, 3);
-		operatorPriorityMap.put(Constants.EQUAL, 3);
-		operatorPriorityMap.put(Constants.ADDITION, 4);
-		operatorPriorityMap.put(Constants.SUBTRACTION, 4);
-		operatorPriorityMap.put(Constants.MULTIPLICATION, 5);
-		operatorPriorityMap.put(Constants.DIVISION, 5);
+		operatorPriorityMap.put(Constants.LESS_THAN, 2);
+		operatorPriorityMap.put(Constants.GREATER_THAN, 2);
+		operatorPriorityMap.put(Constants.EQUAL, 2);
+		operatorPriorityMap.put(Constants.ADDITION, 3);
+		operatorPriorityMap.put(Constants.SUBTRACTION, 3);
+		operatorPriorityMap.put(Constants.MULTIPLICATION, 4);
 	}
 
 	public static StatementNode startParse(String query) throws ParserException {
@@ -251,9 +249,7 @@ public class Parser {
 		Stack<StatementNode> stack = new Stack<StatementNode>();
 		int i = 0;
 		while (i < tokens.length) {
-			if (tokens[i].equals(Constants.NOT)) {
-				stack.push(new StatementNode(tokens[i], false));
-			} else if (operatorPriorityMap.containsKey(tokens[i])) {
+			if (operatorPriorityMap.containsKey(tokens[i])) {
 				if (stack.size() >= 3) {
 					StatementNode last = stack.pop();
 					if (operatorPriorityMap.get(tokens[i]) >= operatorPriorityMap.get(stack.peek().getType())) {
@@ -263,11 +259,6 @@ public class Parser {
 						while (stack.size() > 0 && operatorPriorityMap.get(stack.peek().getType()) > operatorPriorityMap
 								.get(tokens[i])) {
 							StatementNode operator = stack.pop();
-							if (operator.getType().equals(Constants.NOT)) {
-								operator.getBranches().add(last);
-								last = operator;
-								continue;
-							}
 							StatementNode anotherOperand = stack.pop();
 							operator.getBranches().add(anotherOperand);
 							operator.getBranches().add(last);
@@ -323,11 +314,6 @@ public class Parser {
 			StatementNode operant = stack.pop();
 			while (stack.size() >= 2) {
 				StatementNode operator = stack.pop();
-				if (operator.getType().equals(Constants.NOT)) {
-					operator.getBranches().add(operant);
-					operant = operator;
-					continue;
-				}
 				operator.getBranches().add(stack.pop());
 				operator.getBranches().add(operant);
 				operant = operator;
@@ -346,56 +332,33 @@ public class Parser {
 		if (whereString.contains(Constants.OR)) {
 			temp = whereString.split(Constants.OR);
 			for (int i = 0; i < temp.length; i++) {
-				output1.add(temp[i]);
+				output2.add(temp[i]);
 				if (i != temp.length - 1)
-					output1.add(Constants.OR);
+					output2.add(Constants.OR);
 			}
 		}
 		// AND
-		if (!output1.isEmpty()) {
-			for (String s : output1) {
+		if (!output2.isEmpty()) {
+			for (String s : output2) {
 				if (s.contains(Constants.AND)) {
 					temp = s.split(Constants.AND);
 					for (int i = 0; i < temp.length; i++) {
-						output2.add(temp[i]);
-						if (i != temp.length - 1)
-							output2.add(Constants.AND);
-					}
-				} else
-					output2.add(s);
-			}
-		} else if (whereString.contains(Constants.AND)) {
-			temp = whereString.split(Constants.AND);
-			for (int i = 0; i < temp.length; i++) {
-				output2.add(temp[i]);
-				if (i != temp.length - 1)
-					output2.add(Constants.AND);
-			}
-		}
-
-		// NOT
-		if (!output2.isEmpty()) {
-			output1.clear();
-			for (String s : output2) {
-				if (s.contains(Constants.NOT)) {
-					temp = s.split(Constants.NOT);
-					for (int i = 0; i < temp.length; i++) {
 						output1.add(temp[i]);
 						if (i != temp.length - 1)
-							output1.add(Constants.NOT);
+							output1.add(Constants.AND);
 					}
 				} else
 					output1.add(s);
 			}
-		} else if (whereString.contains(Constants.NOT)) {
-			output1.clear();
-			temp = whereString.split(Constants.NOT);
+		} else if (whereString.contains(Constants.AND)) {
+			temp = whereString.split(Constants.AND);
 			for (int i = 0; i < temp.length; i++) {
 				output1.add(temp[i]);
 				if (i != temp.length - 1)
-					output1.add(Constants.NOT);
+					output1.add(Constants.AND);
 			}
 		}
+
 		// EQUAL
 		if (!output1.isEmpty()) {
 			output2.clear();
@@ -537,38 +500,15 @@ public class Parser {
 			}
 		}
 
-		// DIVISION
-		if (!output1.isEmpty()) {
-			output2.clear();
-			for (String s : output1) {
-				if (s.contains(Constants.DIVISION)) {
-					temp = s.split(Constants.DIVISION);
-					for (int i = 0; i < temp.length; i++) {
-						output2.add(temp[i]);
-						if (i != temp.length - 1)
-							output2.add(Constants.DIVISION);
-					}
-				} else
-					output2.add(s);
-			}
-		} else if (whereString.contains(Constants.DIVISION)) {
-			output2.clear();
-			temp = whereString.split(Constants.DIVISION);
-			for (int i = 0; i < temp.length; i++) {
-				output2.add(temp[i]);
-				if (i != temp.length - 1)
-					output2.add(Constants.DIVISION);
-			}
-		}
-		output1.clear();
-		for (String s : output2) {
+		output2.clear();
+		for (String s : output1) {
 			if (s.charAt(0) == '(')
 				s = s.substring(1);
 			if (s.charAt(s.length() - 1) == ')')
 				s = s.substring(0, s.length() - 1);
-			output1.add(s);
+			output2.add(s);
 		}
-		return output1.toArray(new String[0]);
+		return output2.toArray(new String[0]);
 	}
 
 	public static String trimEnclosingCharacters(String string) {

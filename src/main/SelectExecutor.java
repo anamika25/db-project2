@@ -223,13 +223,7 @@ public class SelectExecutor {
 										"push_select_down_temp#" + table);
 								newList.add("push_select_down_temp#" + table);
 								map.put(entry.getKey(), true);
-							} /*
-								 * else if
-								 * (whereNode.getFirstChild().getType().equals(
-								 * Constants.EQUAL)) { // TODO 1 natural join
-								 * condition } else { // TODO execute where }
-								 */
-
+							}
 						}
 					}
 					Relation naturalJoinTable = null;
@@ -505,20 +499,12 @@ public class SelectExecutor {
 			}
 			List<Tuple> outputTuples = null;
 			if (hasDistinct && orderField != null) {
-				// Relation temp =
-				// HelperFunctions.createTableFromTuples(schemaManager, memory,
-				// HelperFunctions.twoPassSort(schemaManager, memory, table,
-				// selectColumnList), "temp");
 				List<Tuple> tuples = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table,
 						selectColumnList);
 				outputTuples = HelperFunctions.twoPassSort(schemaManager, memory,
 						HelperFunctions.createTableFromTuples(schemaManager, memory, tuples, "select_temp_sort"),
 						new ArrayList<>(Arrays.asList(orderField)));
 			} else if (hasDistinct) {
-				// Relation temp =
-				// HelperFunctions.createTableFromTuples(schemaManager, memory,
-				// HelperFunctions.twoPassSort(schemaManager, memory, table,
-				// selectColumnList), "temp");
 				outputTuples = HelperFunctions.removeDuplicatesTwoPass(schemaManager, memory, table, selectColumnList);
 			} else if (orderField != null) {
 				outputTuples = HelperFunctions.twoPassSort(schemaManager, memory, table,
@@ -556,13 +542,13 @@ public class SelectExecutor {
 			CrossJoinTablesHelper optimalJoinTables = HelperFunctions.findOptimalJoinOrder(costRelationList, finalGoal,
 					memory.getMemorySize());
 			HelperFunctions.travesal(optimalJoinTables, 0);
-			return helper(optimalJoinTables, memory, schemaManager);
+			return crossJoinExecutor(optimalJoinTables, memory, schemaManager);
 
 			// TODO
 		}
 	}
 
-	public static Relation helper(CrossJoinTablesHelper optimalJoinTables, MainMemory mem,
+	public static Relation crossJoinExecutor(CrossJoinTablesHelper optimalJoinTables, MainMemory mem,
 			SchemaManager schemaManager) {
 		if (optimalJoinTables.getJoinBy() == null || optimalJoinTables.getJoinBy().size() < 2) {
 			List<String> relation = new ArrayList<>(optimalJoinTables.getTables());
@@ -570,8 +556,10 @@ public class SelectExecutor {
 			return schemaManager.getRelation(relation.get(0));
 		} else {
 			assert optimalJoinTables.getJoinBy().size() == 2;
-			String subRelation1 = helper(optimalJoinTables.getJoinBy().get(0), mem, schemaManager).getRelationName();
-			String subRelation2 = helper(optimalJoinTables.getJoinBy().get(1), mem, schemaManager).getRelationName();
+			String subRelation1 = crossJoinExecutor(optimalJoinTables.getJoinBy().get(0), mem, schemaManager)
+					.getRelationName();
+			String subRelation2 = crossJoinExecutor(optimalJoinTables.getJoinBy().get(1), mem, schemaManager)
+					.getRelationName();
 			ArrayList<String> relationName = new ArrayList<String>();
 			relationName.add(subRelation1);
 			relationName.add(subRelation2);

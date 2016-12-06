@@ -24,9 +24,6 @@ public class ExpressionEvaluator {
 		case Constants.AND:
 			return evaluateLogicalOperator(firstChild, tuple) && evaluateLogicalOperator(secondChild, tuple);
 
-		case Constants.NOT:
-			return !(evaluateLogicalOperator(firstChild, tuple));
-
 		case Constants.LESS_THAN:
 			return evaluateArithmeticOperator(firstChild, tuple) < evaluateArithmeticOperator(secondChild, tuple);
 
@@ -64,10 +61,6 @@ public class ExpressionEvaluator {
 		case Constants.MULTIPLICATION:
 			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
 					* evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
-
-		case Constants.DIVISION:
-			return evaluateArithmeticOperator(statement.getFirstChild(), tuple)
-					/ evaluateArithmeticOperator(statement.getBranches().get(1), tuple);
 
 		default:
 			System.out.println("Wrong type for comparison operator. Exiting!!!");

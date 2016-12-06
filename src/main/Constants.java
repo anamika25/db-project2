@@ -23,14 +23,12 @@ public final class Constants {
 	// Operators
 	public static final String AND = "AND";
 	public static final String OR = "OR";
-	public static final String NOT = "NOT";
 	public static final String LESS_THAN = "<";
 	public static final String GREATER_THAN = ">";
 	public static final String EQUAL = "=";
 	public static final String ADDITION = "+";
 	public static final String SUBTRACTION = "-";
 	public static final String MULTIPLICATION = "*";
-	public static final String DIVISION = "/";
 
 	// Datatype
 	public static final String INT = "INT";
