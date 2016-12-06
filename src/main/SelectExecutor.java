@@ -100,10 +100,8 @@ public class SelectExecutor {
 				// Two pass algorithm
 				List<Tuple> outputTuples = null;
 				if (orderByNode == null && !hasDistinct) {
-					System.out.println("Select operation without distinct and Order By");
 					outputTuples = simpleSelectQuery(memory, table, selectColumnList, whereNode);
 				} else {
-					System.out.println("Select operation with order/distinct");
 					String orderField = orderByNode == null ? null
 							: orderByNode.getFirstChild().getFirstChild().getType();
 					outputTuples = complexSelectQuery(memory, schemaManager, table, selectColumnList, whereNode,
