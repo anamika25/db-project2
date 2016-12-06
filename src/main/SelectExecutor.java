@@ -113,7 +113,6 @@ public class SelectExecutor {
 			// Multiple tables
 			if (whereNode != null) {
 				if (whereNode.getFirstChild().getType().equals(Constants.EQUAL)) {
-					System.out.println("Natural join");
 					StatementNode equalityNode = whereNode.getFirstChild();
 					StatementNode firstOperand = equalityNode.getFirstChild();
 					StatementNode secondOperand = equalityNode.getBranches().get(1);
@@ -248,7 +247,6 @@ public class SelectExecutor {
 									table1 = naturalJoinTable.getRelationName();
 								else if (naturalJoinDone.containsKey(table2))
 									table2 = naturalJoinTable.getRelationName();
-								System.out.println("Natural join");
 								List<Tuple> naturalJoinTuples = HelperFunctions.naturalJoin(schemaManager, memory,
 										table1, table2, column1);
 								naturalJoinTable = HelperFunctions.createTableFromTuples(schemaManager, memory,

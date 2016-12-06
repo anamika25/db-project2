@@ -30,7 +30,6 @@ public class HelperFunctions {
 		if (!tableNames.isEmpty() && tableNames.size() == 2) {
 			String table1 = tableNames.get(0);
 			String table2 = tableNames.get(1);
-			System.out.println("Applying cross join");
 			Relation r = schemaManager.getRelation(table1);
 			Relation s = schemaManager.getRelation(table2);
 
@@ -502,7 +501,7 @@ public class HelperFunctions {
 		}
 		final String firstColumn = column1;
 		final String secondColumn = column2;
-		
+
 		List<Tuple> output = new ArrayList<Tuple>();
 		for (int i = 0; i < table1.getNumOfBlocks(); i++) {
 			table1.getBlock(i, 0);

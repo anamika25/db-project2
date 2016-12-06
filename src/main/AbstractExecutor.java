@@ -75,30 +75,34 @@ public class AbstractExecutor {
 	}
 
 	private void printHeader(Tuple tuple, List<String> fieldList) {
+		int spaces = 18;
 		if (fieldList.get(0).equals("*")) {
 			for (String fieldName : tuple.getSchema().getFieldNames()) {
 				if (fieldName.contains("#")) {
 					fieldName = fieldName.split("#")[1];
 				}
-				System.out.print(fieldName + "   ");
+				fieldName = String.format("%-" + spaces + "s", fieldName);
+				System.out.print(fieldName);
 			}
 			System.out.println();
 		} else {
 			for (String str : fieldList) {
-				System.out.print(str + "    ");
+				str = String.format("%-" + spaces + "s", str);
+				System.out.print(str);
 			}
 			System.out.println();
 		}
 	}
 
 	private void printTuple(Tuple tuple, List<String> fieldList) {
+		int spaces = 18;
 		if (fieldList.get(0).equals("*")) {
-			System.out.println(tuple);
-			return;
+			fieldList = tuple.getSchema().getFieldNames();
 		}
 		for (String field : fieldList) {
-			System.out.print((tuple.getSchema().getFieldType(field) == FieldType.INT ? tuple.getField(field).integer
-					: tuple.getField(field).str) + "   ");
+			String value = String.format("%-" + spaces + "s", tuple.getSchema().getFieldType(field) == FieldType.INT
+					? tuple.getField(field).integer : tuple.getField(field).str);
+			System.out.print(value);
 		}
 		System.out.println();
 	}
