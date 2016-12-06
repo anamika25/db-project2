@@ -1,7 +1,9 @@
 package parser;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -30,7 +32,7 @@ public class Parser {
 	}
 
 	public static StatementNode startParse(String query) throws ParserException {
-		System.out.println("Parsing query: " + query);
+		// System.out.println("Parsing query: " + query);
 		String[] parts = query.split(" ");
 		StatementNode statement = null;
 
@@ -72,7 +74,11 @@ public class Parser {
 			if (whereIndex < 4)
 				throw new ParserException("Wrong position of WHERE in select statement.");
 			StatementNode fromStatement = parseFrom(Arrays.copyOfRange(parts, fromIndex + 1, whereIndex));
-			StatementNode whereStatement = parseWhere(Arrays.copyOfRange(parts, whereIndex + 1, end));
+			StringBuilder builder = new StringBuilder();
+			for (int i = whereIndex + 1; i < end; i++) {
+				builder.append(parts[i]);
+			}
+			StatementNode whereStatement = parseWhere(parseWhereByOperators(builder.toString()));
 			statement.getBranches().add(fromStatement);
 			statement.getBranches().add(whereStatement);
 		} else {
@@ -135,7 +141,11 @@ public class Parser {
 		StatementNode statement = new StatementNode(Constants.DELETE, false);
 		statement.getBranches().add(leaf(parts[2], Constants.TABLE));
 		if (parts.length > 3 && parts[3].equalsIgnoreCase(Constants.WHERE)) {
-			statement.getBranches().add(parseWhere(Arrays.copyOfRange(parts, 4, parts.length)));
+			StringBuilder builder = new StringBuilder();
+			for (int i = 4; i < parts.length; i++) {
+				builder.append(parts[i]);
+			}
+			statement.getBranches().add(parseWhere(parseWhereByOperators(builder.toString())));
 		}
 		return statement;
 	}
@@ -202,6 +212,14 @@ public class Parser {
 			return parseSelect(valuesParts);
 		} else {
 			StatementNode returnStatement = new StatementNode(Constants.VALUES, false);
+			StringBuilder builder = new StringBuilder();
+			for (int i = 0; i < valuesParts.length; i++) {
+				builder.append(valuesParts[i]);
+			}
+			builder = builder.deleteCharAt(0);
+			builder = builder.deleteCharAt(builder.length() - 1);
+			String values = builder.toString();
+			valuesParts = values.split(",");
 			for (String part : valuesParts) {
 				String s = trimEnclosingCharacters(part);
 				returnStatement.getBranches().add(leaf(s, "VALUE"));
@@ -215,11 +233,6 @@ public class Parser {
 		String columnId = columnDetailsParts[0];
 		String type = columnDetailsParts[1];
 		columnId = trimEnclosingCharacters(columnId);
-		// if (columnId.charAt(0) == '(')
-		// columnId = columnId.substring(1);
-		// if (columnId.charAt(columnId.length() - 1) == ',' ||
-		// columnId.charAt(columnId.length() - 1) == ')')
-		// columnId = columnId.substring(0, columnId.length() - 1);
 		if (type.charAt(type.length() - 1) == ',' || type.charAt(type.length() - 1) == ')')
 			type = type.substring(0, type.length() - 1);
 
@@ -325,19 +338,252 @@ public class Parser {
 		}
 	}
 
+	private static String[] parseWhereByOperators(String whereString) {
+		List<String> output1 = new ArrayList<>();
+		List<String> output2 = new ArrayList<>();
+		String[] temp = null;
+		// OR
+		if (whereString.contains(Constants.OR)) {
+			temp = whereString.split(Constants.OR);
+			for (int i = 0; i < temp.length; i++) {
+				output1.add(temp[i]);
+				if (i != temp.length - 1)
+					output1.add(Constants.OR);
+			}
+		}
+		// AND
+		if (!output1.isEmpty()) {
+			for (String s : output1) {
+				if (s.contains(Constants.AND)) {
+					temp = s.split(Constants.AND);
+					for (int i = 0; i < temp.length; i++) {
+						output2.add(temp[i]);
+						if (i != temp.length - 1)
+							output2.add(Constants.AND);
+					}
+				} else
+					output2.add(s);
+			}
+		} else if (whereString.contains(Constants.AND)) {
+			temp = whereString.split(Constants.AND);
+			for (int i = 0; i < temp.length; i++) {
+				output2.add(temp[i]);
+				if (i != temp.length - 1)
+					output2.add(Constants.AND);
+			}
+		}
+
+		// NOT
+		if (!output2.isEmpty()) {
+			output1.clear();
+			for (String s : output2) {
+				if (s.contains(Constants.NOT)) {
+					temp = s.split(Constants.NOT);
+					for (int i = 0; i < temp.length; i++) {
+						output1.add(temp[i]);
+						if (i != temp.length - 1)
+							output1.add(Constants.NOT);
+					}
+				} else
+					output1.add(s);
+			}
+		} else if (whereString.contains(Constants.NOT)) {
+			output1.clear();
+			temp = whereString.split(Constants.NOT);
+			for (int i = 0; i < temp.length; i++) {
+				output1.add(temp[i]);
+				if (i != temp.length - 1)
+					output1.add(Constants.NOT);
+			}
+		}
+		// EQUAL
+		if (!output1.isEmpty()) {
+			output2.clear();
+			for (String s : output1) {
+				if (s.contains(Constants.EQUAL)) {
+					temp = s.split(Constants.EQUAL);
+					for (int i = 0; i < temp.length; i++) {
+						output2.add(temp[i]);
+						if (i != temp.length - 1)
+							output2.add(Constants.EQUAL);
+					}
+				} else
+					output2.add(s);
+			}
+		} else if (whereString.contains(Constants.EQUAL)) {
+			output2.clear();
+			temp = whereString.split(Constants.EQUAL);
+			for (int i = 0; i < temp.length; i++) {
+				output2.add(temp[i]);
+				if (i != temp.length - 1)
+					output2.add(Constants.EQUAL);
+			}
+		}
+		// LESS_THAN
+		if (!output2.isEmpty()) {
+			output1.clear();
+			for (String s : output2) {
+				if (s.contains(Constants.LESS_THAN)) {
+					temp = s.split(Constants.LESS_THAN);
+					for (int i = 0; i < temp.length; i++) {
+						output1.add(temp[i]);
+						if (i != temp.length - 1)
+							output1.add(Constants.LESS_THAN);
+					}
+				} else
+					output1.add(s);
+			}
+		} else if (whereString.contains(Constants.LESS_THAN)) {
+			output1.clear();
+			temp = whereString.split(Constants.LESS_THAN);
+			for (int i = 0; i < temp.length; i++) {
+				output1.add(temp[i]);
+				if (i != temp.length - 1)
+					output1.add(Constants.LESS_THAN);
+			}
+		}
+
+		// GREATER_THAN
+		if (!output1.isEmpty()) {
+			output2.clear();
+			for (String s : output1) {
+				if (s.contains(Constants.GREATER_THAN)) {
+					temp = s.split(Constants.GREATER_THAN);
+					for (int i = 0; i < temp.length; i++) {
+						output2.add(temp[i]);
+						if (i != temp.length - 1)
+							output2.add(Constants.GREATER_THAN);
+					}
+				} else
+					output2.add(s);
+			}
+		} else if (whereString.contains(Constants.GREATER_THAN)) {
+			output2.clear();
+			temp = whereString.split(Constants.GREATER_THAN);
+			for (int i = 0; i < temp.length; i++) {
+				output2.add(temp[i]);
+				if (i != temp.length - 1)
+					output2.add(Constants.GREATER_THAN);
+			}
+		}
+		// ADDITION
+		if (!output2.isEmpty()) {
+			output1.clear();
+			for (String s : output2) {
+				if (s.contains(Constants.ADDITION)) {
+					temp = s.split("\\" + Constants.ADDITION);
+					for (int i = 0; i < temp.length; i++) {
+						output1.add(temp[i]);
+						if (i != temp.length - 1)
+							output1.add(Constants.ADDITION);
+					}
+				} else
+					output1.add(s);
+			}
+		} else if (whereString.contains(Constants.ADDITION)) {
+			output1.clear();
+			temp = whereString.split("\\" + Constants.ADDITION);
+			for (int i = 0; i < temp.length; i++) {
+				output1.add(temp[i]);
+				if (i != temp.length - 1)
+					output1.add(Constants.ADDITION);
+			}
+		}
+
+		// SUBTRACTION
+		if (!output1.isEmpty()) {
+			output2.clear();
+			for (String s : output1) {
+				if (s.contains(Constants.SUBTRACTION)) {
+					temp = s.split(Constants.SUBTRACTION);
+					for (int i = 0; i < temp.length; i++) {
+						output2.add(temp[i]);
+						if (i != temp.length - 1)
+							output2.add(Constants.SUBTRACTION);
+					}
+				} else
+					output2.add(s);
+			}
+		} else if (whereString.contains(Constants.SUBTRACTION)) {
+			output2.clear();
+			temp = whereString.split(Constants.SUBTRACTION);
+			for (int i = 0; i < temp.length; i++) {
+				output2.add(temp[i]);
+				if (i != temp.length - 1)
+					output2.add(Constants.SUBTRACTION);
+			}
+		}
+		// MULTIPLICATION
+		if (!output2.isEmpty()) {
+			output1.clear();
+			for (String s : output2) {
+				if (s.contains(Constants.MULTIPLICATION)) {
+					temp = s.split("\\" + Constants.MULTIPLICATION);
+					for (int i = 0; i < temp.length; i++) {
+						output1.add(temp[i]);
+						if (i != temp.length - 1)
+							output1.add(Constants.MULTIPLICATION);
+					}
+				} else
+					output1.add(s);
+			}
+		} else if (whereString.contains(Constants.MULTIPLICATION)) {
+			output1.clear();
+			temp = whereString.split("\\" + Constants.MULTIPLICATION);
+			for (int i = 0; i < temp.length; i++) {
+				output1.add(temp[i]);
+				if (i != temp.length - 1)
+					output1.add(Constants.MULTIPLICATION);
+			}
+		}
+
+		// DIVISION
+		if (!output1.isEmpty()) {
+			output2.clear();
+			for (String s : output1) {
+				if (s.contains(Constants.DIVISION)) {
+					temp = s.split(Constants.DIVISION);
+					for (int i = 0; i < temp.length; i++) {
+						output2.add(temp[i]);
+						if (i != temp.length - 1)
+							output2.add(Constants.DIVISION);
+					}
+				} else
+					output2.add(s);
+			}
+		} else if (whereString.contains(Constants.DIVISION)) {
+			output2.clear();
+			temp = whereString.split(Constants.DIVISION);
+			for (int i = 0; i < temp.length; i++) {
+				output2.add(temp[i]);
+				if (i != temp.length - 1)
+					output2.add(Constants.DIVISION);
+			}
+		}
+		output1.clear();
+		for (String s : output2) {
+			if (s.charAt(0) == '(')
+				s = s.substring(1);
+			if (s.charAt(s.length() - 1) == ')')
+				s = s.substring(0, s.length() - 1);
+			output1.add(s);
+		}
+		return output1.toArray(new String[0]);
+	}
+
 	public static String trimEnclosingCharacters(String string) {
 		String res = string;
 		if (res.length() == 0)
 			return null;
 		if (res.charAt(0) == '(')
 			res = res.substring(1);
-		if (res.charAt(0) == '"')
+		if (res.charAt(0) == '\"')
 			res = res.substring(1);
 		if (res.charAt(res.length() - 1) == ')')
 			res = res.substring(0, res.length() - 1);
 		if (res.charAt(res.length() - 1) == ',')
 			res = res.substring(0, res.length() - 1);
-		if (res.charAt(res.length() - 1) == '"')
+		if (res.charAt(res.length() - 1) == '\"')
 			res = res.substring(0, res.length() - 1);
 		return res;
 	}

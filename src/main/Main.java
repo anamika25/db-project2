@@ -83,6 +83,7 @@ public class Main {
 				if (line.isEmpty()) {
 					continue;
 				}
+				System.out.println("Query: " + line);
 				executor.execute(Parser.startParse(line), schemaManager, disk, memory);
 			}
 		} catch (FileNotFoundException e) {

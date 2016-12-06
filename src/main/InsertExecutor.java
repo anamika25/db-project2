@@ -65,21 +65,21 @@ public class InsertExecutor {
 	}
 
 	private static void appendTupleToRelation(Relation table, MainMemory memory, int memoryBlockIndex, Tuple tuple) {
-		Block blockReference;
+		Block block;
 		if (table.getNumOfBlocks() == 0) {
-			blockReference = memory.getBlock(memoryBlockIndex);
-			blockReference.clear();
-			blockReference.appendTuple(tuple);
+			block = memory.getBlock(memoryBlockIndex);
+			block.clear();
+			block.appendTuple(tuple);
 			table.setBlock(table.getNumOfBlocks(), memoryBlockIndex);
 		} else {
 			table.getBlock(table.getNumOfBlocks() - 1, memoryBlockIndex);
-			blockReference = memory.getBlock(memoryBlockIndex);
-			if (blockReference.isFull()) {
-				blockReference.clear();
-				blockReference.appendTuple(tuple);
+			block = memory.getBlock(memoryBlockIndex);
+			if (block.isFull()) {
+				block.clear();
+				block.appendTuple(tuple);
 				table.setBlock(table.getNumOfBlocks(), memoryBlockIndex);
 			} else {
-				blockReference.appendTuple(tuple);
+				block.appendTuple(tuple);
 				table.setBlock(table.getNumOfBlocks() - 1, memoryBlockIndex);
 			}
 		}
